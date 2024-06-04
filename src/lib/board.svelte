@@ -71,9 +71,9 @@
     // Can't wait to actually have to build an express server just to fix it!!
     // And also I had to write a whole vite plugin to make it for for development
     // Why can't sveltekit just support webhooks out of the box....
-    /* onMount(() => {
+    onMount(() => {
         fetchBoard();
-    }); */
+    });
 </script>
 
 <div
