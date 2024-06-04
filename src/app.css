@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+    .input {
+        @apply font-medium rounded-lg text-white bg-[#408cb8] bg-opacity-25 text-base outline-none py-3 px-5;
+    }
+}
+
+:root {
+    font-family: Inter;
+    font-size: 16px;
+    line-height: 16px;
+    font-weight: 400;
+
+    margin: 0;
+
+    background-color: #0a0321;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+}
