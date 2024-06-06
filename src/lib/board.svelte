@@ -38,16 +38,10 @@
     // BTW this function doesn't work in development mode so yeahhh
     // I can only test it in production 💀
     async function fetchBoard() {
-        // The code param is useless right now until rooms actually room correctly
-        const response = await fetch(`/api/playing?roomId=${roomId}`, {
-            method: "GET",
-            headers: {
-                "content-type": "application/json",
-            },
-        });
+        const response = await fetch(`/api/playing?roomId=${roomId}`);
 
-        // This is already converted to the minesweeper board array
-        // I don't understand why but I'm not questioning it
+        console.log(await response.json());
+
         board = await response.json();
     }
 

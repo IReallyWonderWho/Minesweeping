@@ -24,7 +24,19 @@ const webSocketServer = {
 
         if (room) {
           socket.join(roomId);
+          // Return the roomId and the client board
           socket.emit("joined_room", roomId);
+          return;
+        }
+
+        socket.emit("error", "Room not found");
+      });
+
+      socket.on("get_board", (roomId) => {
+        const room = getRoom(roomId);
+
+        if (room) {
+          socket.emit("post_board", room["client_board"]);
           return;
         }
 

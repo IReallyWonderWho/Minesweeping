@@ -1,12 +1,17 @@
-import { generateSolvedBoard } from "$lib/server/board";
-import { type RequestHandler } from "@sveltejs/kit";
-
-const [_, client_board] = generateSolvedBoard(12, 0, 0);
+import { error, json, type RequestHandler } from "@sveltejs/kit";
+import { getRoom, rooms } from "$lib/server/rooms";
 
 // DOES NOT WORK IN DEVELOPMENT MODE, WILL REDO LATER
 export const GET: RequestHandler = ({ url }) => {
-  const join_code = url.searchParams.get("code");
+  const roomId = url.searchParams.get("roomId");
 
-  console.log(join_code);
-  return new Response(JSON.stringify(client_board));
+  if (!roomId) return error(400, "Room ID not provided");
+
+  console.log(roomId);
+  console.log(rooms);
+  const room = getRoom(roomId);
+
+  if (!room) return error(400, "Room not found");
+
+  return json(room["client_board"]);
 };

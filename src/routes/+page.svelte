@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { goto } from "$app/navigation";
     import { socket } from "$lib/webhook";
 
     let roomId: string = "";

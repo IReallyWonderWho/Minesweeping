@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { generateSolvedBoard } from "./board";
 
-const rooms: Map<
+export const rooms: Map<
   string,
   { server_board: Array<Array<number>>; client_board: Array<Array<number>> }
 > = new Map();
