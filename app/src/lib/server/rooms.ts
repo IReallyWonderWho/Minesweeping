@@ -8,7 +8,7 @@ export interface Room {
   roomId: string;
 }
 
-export function createRoom(
+export async function createRoom(
   number_of_rows_columns: number,
   safe_row: number,
   safe_column: number,
@@ -22,9 +22,7 @@ export function createRoom(
     safe_column,
   );
 
-  console.log("hehehaha");
-
-  redis.set(`roomId/${roomId}`, {
+  await redis.set(`roomId/${roomId}`, {
     server_board,
     client_board,
     roomId,

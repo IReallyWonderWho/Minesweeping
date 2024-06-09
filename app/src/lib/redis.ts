@@ -44,7 +44,6 @@ async function get<T>(key: string, fallback: T): Promise<T>;
 async function get<T>(key: string, fallback?: T): Promise<T | undefined> {
   await autoConnect();
   const value = await client.get(key);
-  console.log(value);
   if (value === null) {
     return fallback;
   }

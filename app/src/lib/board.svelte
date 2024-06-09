@@ -3,17 +3,21 @@
     import Tile from "./tile.svelte";
     import { socket } from "./webhook";
 
+    const UNKNOWN_TILE = -2;
+    const FLAGGED_TILE = -3;
+
     export let roomId: string;
 
     socket.on(
         "board_updated",
         (tile: [number, number, number] | Map<string, number>) => {
-            console.log(tile);
             // This is [x, y, tile state]
+            console.log(tile);
             if (Array.isArray(tile)) {
                 const [x, y, state] = tile;
 
                 if (board) {
+                    console.log(state);
                     board[x][y] = state;
                 }
             } else {
@@ -43,13 +47,9 @@
         board = await response.json();
     }
 
-    async function postTile(x: number, y: number) {
-        const UNKNOWN_TILE = -2;
-
-        console.log("hi");
+    function postTile(x: number, y: number) {
         if (board && board[x][y] !== UNKNOWN_TILE) return;
 
-        console.log("wow");
         const body = {
             x,
             y,
@@ -57,6 +57,23 @@
         };
 
         socket.emit("choose_tile", body);
+    }
+
+    function flagTile(x: number, y: number) {
+        if (
+            board &&
+            board[x][y] !== UNKNOWN_TILE &&
+            board[x][y] !== FLAGGED_TILE
+        )
+            return;
+
+        const body = {
+            x,
+            y,
+            roomId,
+        };
+
+        socket.emit("flag_tile", body);
     }
 
     // Congrats!! Websockets broke my previously working get request!!
@@ -79,6 +96,7 @@
                 position={{ x, y }}
                 state={board ? board[x][y] : undefined}
                 {postTile}
+                {flagTile}
             />
         {/each}
     {/each}

@@ -1,4 +1,5 @@
 // src/lib/server/board.ts
+var FLAGGED_TILE = -3;
 var UNKNOWN_TILE = -2;
 var MINE_TILE = -1;
 var ZERO_TILE = 0;
@@ -157,7 +158,6 @@ client.on("disconnect", () => {
 async function get(key, fallback) {
   await autoConnect();
   const value = await client.get(key);
-  console.log(value);
   if (value === null) {
     return fallback;
   }
@@ -226,15 +226,14 @@ var redis = {
 var redis_default = redis;
 
 // src/lib/server/rooms.ts
-function createRoom(number_of_rows_columns, safe_row, safe_column) {
+async function createRoom(number_of_rows_columns, safe_row, safe_column) {
   const roomId = "Never going to give your ip";
   const [server_board, client_board] = generateSolvedBoard(
     number_of_rows_columns,
     safe_row,
     safe_column
   );
-  console.log("hehehaha");
-  redis_default.set(`roomId/${roomId}`, {
+  await redis_default.set(`roomId/${roomId}`, {
     server_board,
     client_board,
     roomId
@@ -270,13 +269,39 @@ function multiplayer(io) {
       const { server_board, client_board } = room;
       const tile = returnTile("Rick Ashley", server_board, client_board, x, y);
       const room_id = `roomId/${room.roomId}`;
-      redis_default.set(room_id, { server_board, client_board, roomId });
+      await redis_default.set(room_id, { server_board, client_board, roomId });
       io.to(room_id).emit(
         "board_updated",
         Array.isArray(tile) ? tile : Object.fromEntries(tile)
       );
     });
-    socket.on("flag_tile", ({ x, y }) => {
+    socket.on("flag_tile", async ({ x, y, roomId }) => {
+      const room = await getRoom(roomId);
+      if (!room) {
+        socket.emit("error", "Room not found");
+        return;
+      }
+      const room_id = `roomId/${room.roomId}`;
+      const { server_board, client_board } = room;
+      const tile = client_board[x][y];
+      if (tile !== UNKNOWN_TILE && tile !== FLAGGED_TILE) {
+        socket.emit("error", "Tile cannot be flagged");
+        return;
+      }
+      const is_flagged = tile === UNKNOWN_TILE;
+      const new_tile = is_flagged ? FLAGGED_TILE : UNKNOWN_TILE;
+      console.log(`Hi its old me: ${tile}`);
+      console.log(`Hi its me: ${new_tile}`);
+      client_board[x][y] = new_tile;
+      console.log(client_board[x][y]);
+      console.log(room["client_board"][x][y]);
+      await redis_default.set(room_id, {
+        server_board,
+        client_board,
+        roomId
+      });
+      console.log(room.roomId);
+      io.to(room_id).emit("board_updated", [x, y, new_tile]);
     });
   });
 }

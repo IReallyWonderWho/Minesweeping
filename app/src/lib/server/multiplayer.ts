@@ -1,5 +1,5 @@
 import type { Server } from "socket.io";
-import { returnTile } from "./board";
+import { UNKNOWN_TILE, FLAGGED_TILE, returnTile } from "./board";
 import { createRoom, getRoom, type Room } from "./rooms";
 import redis from "../redis";
 
@@ -38,7 +38,7 @@ export default function multiplayer(io: Server) {
       const tile = returnTile("Rick Ashley", server_board, client_board, x, y);
       const room_id = `roomId/${room.roomId}`;
 
-      redis.set(room_id, { server_board, client_board, roomId });
+      await redis.set(room_id, { server_board, client_board, roomId });
 
       io.to(room_id).emit(
         "board_updated",
@@ -46,8 +46,43 @@ export default function multiplayer(io: Server) {
       );
     });
 
-    socket.on("flag_tile", ({ x, y }) => {
-      // TODO sync flags across different clients
+    socket.on("flag_tile", async ({ x, y, roomId }) => {
+      const room = await getRoom(roomId);
+
+      if (!room) {
+        socket.emit("error", "Room not found");
+        return;
+      }
+
+      const room_id = `roomId/${room.roomId}`;
+      const { server_board, client_board } = room;
+      const tile = client_board[x][y];
+
+      if (tile !== UNKNOWN_TILE && tile !== FLAGGED_TILE) {
+        socket.emit("error", "Tile cannot be flagged");
+        return;
+      }
+
+      const is_flagged = tile === UNKNOWN_TILE;
+      const new_tile = is_flagged ? FLAGGED_TILE : UNKNOWN_TILE;
+
+      console.log(`Hi its old me: ${tile}`);
+      console.log(`Hi its me: ${new_tile}`);
+
+      client_board[x][y] = new_tile;
+
+      console.log(client_board[x][y]);
+      console.log(room["client_board"][x][y]);
+
+      await redis.set(room_id, {
+        server_board,
+        client_board,
+        roomId,
+      });
+
+      console.log(room.roomId);
+
+      io.to(room_id).emit("board_updated", [x, y, new_tile]);
     });
   });
 }

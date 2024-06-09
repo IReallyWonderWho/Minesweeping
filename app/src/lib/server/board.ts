@@ -1,4 +1,5 @@
-const UNKNOWN_TILE = -2;
+export const FLAGGED_TILE = -3;
+export const UNKNOWN_TILE = -2;
 const MINE_TILE = -1;
 const ZERO_TILE = 0;
 // 1 mine per 6 tiles
@@ -130,7 +131,13 @@ export function generateSolvedBoard(
 
 // This function can either return a singular tile or a map of tiles indexed by an id
 // generated based on the x and y (depending on if
-//  the tile requested was a zero or not)
+//  the tile requested was a zero or not
+//
+// Array:
+// [x, y, state]
+//
+// Map:
+// Map<"x,y", state>
 export function returnTile(
   player: string,
   server_board: Array<Array<number>>,
