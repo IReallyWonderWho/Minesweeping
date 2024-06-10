@@ -12,7 +12,6 @@
         "board_updated",
         (tile: [number, number, number] | Map<string, number>) => {
             // This is [x, y, tile state]
-            console.log(tile);
             if (Array.isArray(tile)) {
                 const [x, y, state] = tile;
 
@@ -30,17 +29,30 @@
 
                     if (!board) return;
 
+                    console.log("bruh");
                     board[x][y] = state;
                 }
             }
         },
     );
 
-    let num_of_rows_columns = 12;
-    let board: Array<Array<number>> | undefined;
+    let number_of_rows_columns = 12;
+    let board: Array<Array<number>> = createTempBoard();
 
-    // BTW this function doesn't work in development mode so yeahhh
-    // I can only test it in production 💀
+    function createTempBoard() {
+        let real_board = [];
+
+        for (let x = 0; x < number_of_rows_columns; x++) {
+            const row: Array<number> = [];
+            for (let y = 0; y < number_of_rows_columns; y++) {
+                row.push(UNKNOWN_TILE);
+            }
+            real_board.push(row);
+        }
+
+        return real_board;
+    }
+
     async function fetchBoard() {
         const response = await fetch(`/api/playing?roomId=${roomId}`);
 
@@ -89,9 +101,9 @@
     class="w-[500px] h-[500px] bg-black grid grid-cols-12 grid-rows-12 justify-items-stretch"
 >
     <!--Row-->
-    {#each { length: num_of_rows_columns } as _, x}
+    {#each { length: number_of_rows_columns } as _, x}
         <!--Column-->
-        {#each { length: num_of_rows_columns } as _, y}
+        {#each { length: number_of_rows_columns } as _, y}
             <Tile
                 position={{ x, y }}
                 state={board ? board[x][y] : undefined}

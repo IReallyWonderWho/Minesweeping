@@ -4,7 +4,7 @@
 
     // !! Position starts at (0, 0) and goes up to (11, 11)
     export let position: { x: number; y: number };
-    export let state: number | undefined;
+    export let state: number | undefined = -2;
 
     const UNKNOWN_TILE = -2;
     const FLAGGED_TILE = -3;

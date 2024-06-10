@@ -120,6 +120,9 @@ function massReveal(server_board, client_board, row, column, visited_tiles) {
   }
 }
 
+// src/lib/server/rooms.ts
+import { v4 as uuidv4 } from "uuid";
+
 // src/lib/redis.ts
 import { createClient } from "redis";
 var redisHost = process.env.REDIS_HOST || "localhost";
@@ -226,26 +229,44 @@ var redis = {
 var redis_default = redis;
 
 // src/lib/server/rooms.ts
-async function createRoom(number_of_rows_columns, safe_row, safe_column) {
-  const roomId = "Never going to give your ip";
+async function createRoom(custom_room_id) {
+  const roomId = custom_room_id ?? uuidv4();
+  const room = {
+    server_board: void 0,
+    client_board: void 0,
+    roomId,
+    started: false
+  };
+  await redis_default.set(`roomId/${roomId}`, room);
+  return { roomId };
+}
+async function createBoardForRoom(roomId, number_of_rows_columns, safe_row, safe_column) {
+  const room = await getRoom(roomId);
+  if (!room)
+    throw "Room not found";
+  console.log("generating boards!");
   const [server_board, client_board] = generateSolvedBoard(
     number_of_rows_columns,
     safe_row,
     safe_column
   );
-  await redis_default.set(`roomId/${roomId}`, {
+  const room_body = {
     server_board,
     client_board,
-    roomId
-  });
-  return { server_board, client_board, roomId };
+    roomId,
+    started: true
+  };
+  console.log(JSON.stringify(room_body));
+  await redis_default.set(`roomId/${roomId}`, room_body);
+  return room_body;
 }
 function getRoom(roomId) {
   return redis_default.get(`roomId/${roomId}`);
 }
 
 // src/lib/server/multiplayer.ts
-createRoom(12, 0, 0);
+var NUMBER_OF_ROWS_COLUMNS = 12;
+createRoom("Never going to give your ip");
 function multiplayer(io) {
   redis_default.subscribe("room/*", (room) => {
     io.to(`roomId/${room.roomId}`).emit(`roomId/${room.roomId}`, room);
@@ -266,10 +287,21 @@ function multiplayer(io) {
         socket.emit("error", "Room not found");
         return;
       }
-      const { server_board, client_board } = room;
-      const tile = returnTile("Rick Ashley", server_board, client_board, x, y);
+      const { server_board, client_board } = room.started ? room : await createBoardForRoom(room.roomId, NUMBER_OF_ROWS_COLUMNS, x, y);
+      const tile = returnTile(
+        "Rick Ashley",
+        server_board,
+        client_board,
+        x,
+        y
+      );
       const room_id = `roomId/${room.roomId}`;
-      await redis_default.set(room_id, { server_board, client_board, roomId });
+      await redis_default.set(room_id, {
+        server_board,
+        client_board,
+        roomId,
+        started: true
+      });
       io.to(room_id).emit(
         "board_updated",
         Array.isArray(tile) ? tile : Object.fromEntries(tile)
@@ -281,6 +313,10 @@ function multiplayer(io) {
         socket.emit("error", "Room not found");
         return;
       }
+      if (!room.started) {
+        socket.emit("error", "Room boards haven't been initalized yet");
+        return;
+      }
       const room_id = `roomId/${room.roomId}`;
       const { server_board, client_board } = room;
       const tile = client_board[x][y];
@@ -290,17 +326,13 @@ function multiplayer(io) {
       }
       const is_flagged = tile === UNKNOWN_TILE;
       const new_tile = is_flagged ? FLAGGED_TILE : UNKNOWN_TILE;
-      console.log(`Hi its old me: ${tile}`);
-      console.log(`Hi its me: ${new_tile}`);
       client_board[x][y] = new_tile;
-      console.log(client_board[x][y]);
-      console.log(room["client_board"][x][y]);
       await redis_default.set(room_id, {
         server_board,
         client_board,
-        roomId
+        roomId,
+        started: room.started
       });
-      console.log(room.roomId);
       io.to(room_id).emit("board_updated", [x, y, new_tile]);
     });
   });
