@@ -68,7 +68,7 @@ function computeBoard(
     for (let y = 0; y < number_of_rows_columns; y++) {
       const tile = board[x][y];
 
-      if (tile !== UNKNOWN_TILE) continue;
+      if (tile === MINE_TILE) continue;
 
       let surrounding_bombs = 0;
 
@@ -83,8 +83,8 @@ function computeBoard(
   }
 }
 
-// This function might as well be magic
-// (I don't really know how it works anymore)
+// I just designed this after a previous
+// minesweeper project of mine lol
 export function generateSolvedBoard(
   number_of_rows_columns: number,
   safe_row: number,
@@ -125,7 +125,7 @@ export function generateSolvedBoard(
   computeBoard(server_board, number_of_rows_columns);
 
   // The first one we keep on the server and the second one is the board that is
-  // actually sent to the client
+  // sent to the client
   return [server_board, client_board];
 }
 
@@ -142,18 +142,21 @@ export function returnTile(
   player: string,
   server_board: Array<Array<number>>,
   client_board: Array<Array<number>>,
+  current_revealed_tiles: number,
   row: number,
   column: number,
-): [number, number, number] | Map<string, number> {
+): { x: number; y: number; state: number } | Map<string, number> {
   const client_tile = client_board[row][column];
   const server_tile = server_board[row][column];
 
   // If the client board already has the answer, just return it
   if (client_tile !== UNKNOWN_TILE) {
-    return [row, column, client_tile];
+    return {
+      x: row,
+      y: column,
+      state: client_tile,
+    };
   }
-
-  client_board[row][column] = server_tile;
 
   switch (server_tile) {
     case ZERO_TILE: {
@@ -161,26 +164,48 @@ export function returnTile(
 
       massReveal(server_board, client_board, row, column, visited_tiles);
 
-      console.log("HI");
+      // Subtract one to account for the one we added before this
+      // switch case statement
+      current_revealed_tiles += visited_tiles.size;
+
+      if (didGameEnd(server_board, current_revealed_tiles)) {
+        console.log("Yay you won!!");
+      }
+
       return visited_tiles;
     }
     case MINE_TILE: {
+      client_board[row][column] = server_tile;
       gameOver(true, player, row, column);
     }
   }
 
-  if (didGameEnd()) {
-    gameOver(true, player, row, column);
+  client_board[row][column] = server_tile;
+  current_revealed_tiles += 1;
+
+  if (didGameEnd(server_board, current_revealed_tiles)) {
+    gameOver(false, player, row, column);
   }
 
-  return [row, column, server_tile];
+  return {
+    x: row,
+    y: column,
+    state: server_tile,
+  };
 }
 
-// The functions below aren't done lol
-function didGameEnd() {
-  console.log("TBA");
+function didGameEnd(
+  board: Array<Array<number>>,
+  number_of_revealed_tiles: number,
+) {
+  // Get the height of the board and since it's a square, just square it
+  const number_of_tiles = board.length ** 2;
+  // Should get us the same number of mines as when we first generated the board
+  const number_of_mines = Math.floor(number_of_tiles / TILE_TO_MINE_RATIO);
+  // The tiles that should be left when the game is completed;
+  const number_of_remaining_tiles = number_of_tiles - number_of_mines;
 
-  return false;
+  return number_of_remaining_tiles === number_of_revealed_tiles;
 }
 
 function gameOver(
@@ -204,6 +229,7 @@ function massReveal(
 
   // Base case: if the tile has already been visited, return
   if (visited_tiles.has(id)) return;
+  if (client_board[row][column] !== UNKNOWN_TILE) return;
 
   // Mark the current tile as visited and update the client board
   visited_tiles.set(id, server_board[row][column]);

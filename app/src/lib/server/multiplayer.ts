@@ -7,8 +7,9 @@ const NUMBER_OF_ROWS_COLUMNS = 12;
 
 createRoom("Never going to give your ip");
 
-// Uhmmmm, the room data on the server and sveltekit are completely different, so
+// The room data on the server and sveltekit are completely different, so
 // we need a layer to actually synchronize them
+// in this case we're using redis
 export default function multiplayer(io: Server) {
   redis.subscribe("room/*", (room: Room) => {
     io.to(`roomId/${room.roomId}`).emit(`roomId/${room.roomId}`, room);
@@ -41,25 +42,32 @@ export default function multiplayer(io: Server) {
         ? room
         : await createBoardForRoom(room.roomId, NUMBER_OF_ROWS_COLUMNS, x, y);
 
-      const tile = returnTile(
+      const returned_tile = returnTile(
         "Rick Ashley",
         server_board!,
         client_board!,
+        room.number_of_revealed_tiles,
         x,
         y,
       );
       const room_id = `roomId/${room.roomId}`;
+      const increment_by = "x" in returned_tile ? 1 : returned_tile.size;
 
-      await redis.set(room_id, {
+      await redis.set<Room>(room_id, {
         server_board,
         client_board,
         roomId,
+        number_of_revealed_tiles: room.number_of_revealed_tiles + increment_by,
         started: true,
       });
 
+      // console.log(new Map().constructor == Object) // False
+      // console.log({ "a": "hi" }.constructor == Object) // True
       io.to(room_id).emit(
         "board_updated",
-        Array.isArray(tile) ? tile : Object.fromEntries(tile),
+        "x" in returned_tile
+          ? returned_tile
+          : Object.fromEntries(returned_tile),
       );
     });
 
@@ -70,8 +78,6 @@ export default function multiplayer(io: Server) {
         socket.emit("error", "Room not found");
         return;
       }
-
-      // Redis isn't being funny???
       if (!room.started) {
         socket.emit("error", "Room boards haven't been initalized yet");
         return;
@@ -91,14 +97,15 @@ export default function multiplayer(io: Server) {
 
       client_board![x][y] = new_tile;
 
-      await redis.set(room_id, {
+      await redis.set<Room>(room_id, {
         server_board,
         client_board,
         roomId,
         started: room.started,
+        number_of_revealed_tiles: room.number_of_revealed_tiles,
       });
 
-      io.to(room_id).emit("board_updated", [x, y, new_tile]);
+      io.to(room_id).emit("board_updated", { x, y, state: new_tile });
     });
   });
 }

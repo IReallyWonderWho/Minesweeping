@@ -8,6 +8,19 @@
     }
 }
 
+/* metropolis-latin-600-normal */
+@font-face {
+    font-family: "Metropolis";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 600;
+    src:
+        url(https://cdn.jsdelivr.net/fontsource/fonts/metropolis@latest/latin-600-normal.woff2)
+            format("woff2"),
+        url(https://cdn.jsdelivr.net/fontsource/fonts/metropolis@latest/latin-600-normal.woff)
+            format("woff");
+}
+
 :root {
     font-family: Inter;
     font-size: 16px;
@@ -16,7 +29,7 @@
 
     margin: 0;
 
-    background-color: #0a0321;
+    background-color: #091317;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-text-size-adjust: 100%;

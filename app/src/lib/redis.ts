@@ -49,9 +49,9 @@ async function get<T>(key: string, fallback?: T): Promise<T | undefined> {
   }
   return JSON.parse(value);
 }
-async function set(
+async function set<T>(
   key: string,
-  value: unknown,
+  value: T,
   options?: { ttl: number }, // TTL in seconds
 ): Promise<void> {
   const data = JSON.stringify(value);

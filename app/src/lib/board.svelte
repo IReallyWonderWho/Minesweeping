@@ -10,13 +10,20 @@
 
     socket.on(
         "board_updated",
-        (tile: [number, number, number] | Map<string, number>) => {
-            // This is [x, y, tile state]
-            if (Array.isArray(tile)) {
-                const [x, y, state] = tile;
+        (
+            tile: { x: number; y: number; state: number } | Map<string, number>,
+        ) => {
+            console.log(board);
+            // This is {x, y, tile state}
+            if ("x" in tile) {
+                console.log(tile);
+                const { x, y, state } = tile as {
+                    x: number;
+                    y: number;
+                    state: number;
+                };
 
                 if (board) {
-                    console.log(state);
                     board[x][y] = state;
                 }
             } else {

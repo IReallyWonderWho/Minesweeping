@@ -7,13 +7,13 @@ export default {
     extend: {
       fontFamily: {
         display: ["Seymour One"],
+        sans: ["Inter var", ...defaultTheme.fontFamily.sans],
+        metropolis: ["Metropolis", "sans-serif"],
       },
       colors: {
-        primary: "#006ba8",
-        background: "#07031b",
-        text: "#e7e2fc",
-        secondary: "#7f158b",
-        accent: "#7aa4b4",
+        primary: "#92cde6",
+        background: "#091317",
+        text: "#e7f5f9",
       },
     },
   },

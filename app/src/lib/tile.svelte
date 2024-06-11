@@ -1,4 +1,6 @@
 <script lang="ts">
+    import Icon from "./icon.svelte";
+
     export let postTile: (x: number, y: number) => void;
     export let flagTile: (x: number, y: number) => void;
 
@@ -8,6 +10,17 @@
 
     const UNKNOWN_TILE = -2;
     const FLAGGED_TILE = -3;
+
+    const NUMBER_COLORS = {
+        1: "text-[#3a8ae0]",
+        2: "text-[#03913e]",
+        3: "text-[#D0021B]",
+        4: "text-[#000080]",
+        5: "text-[#800000]",
+        6: "text-[#008B8B]",
+        7: "text-[#8B008B]",
+        8: "text-[#A9A9A9]",
+    };
 
     // As x is the row, everytime it incremenets we know 12 tiles have passed since
     // the last iteration
@@ -22,6 +35,8 @@
               ? `bg-[#d9ccb6]`
               : `bg-[#ede4d5]`;
     $: flagged = state === FLAGGED_TILE;
+    $: text_color =
+        state && state in NUMBER_COLORS ? NUMBER_COLORS[state as 1] : "#FFFFFF";
 
     async function click() {
         if (flagged) return;
@@ -36,13 +51,13 @@
 
 <!--Disable right click on the buttons by preventing default on contextmenu-->
 <button
-    class={`${color} justify-self-stretch`}
+    class={`${color} ${text_color} flex justify-self-stretch items-center justify-center text-lg font-metropolis font-semibold`}
     on:contextmenu|preventDefault={flag}
     on:click|preventDefault={click}
 >
     <!--Temporary icon-->
     {#if flagged}
-        <i class="fa-brands fa-font-awesome"></i>
+        <Icon name="flag" height="22.875px" width="25.5px" />
     {/if}
     <!--Show the number-->
     {#if state && state !== UNKNOWN_TILE && state !== FLAGGED_TILE}

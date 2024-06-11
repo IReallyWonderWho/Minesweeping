@@ -6,6 +6,7 @@ import redis from "../redis";
 export interface Room {
   server_board: Array<Array<number>> | undefined;
   client_board: Array<Array<number>> | undefined;
+  number_of_revealed_tiles: number;
   started: boolean;
   roomId: string;
 }
@@ -16,6 +17,7 @@ export async function createRoom(custom_room_id?: string) {
   const room: Room = {
     server_board: undefined,
     client_board: undefined,
+    number_of_revealed_tiles: 0,
     roomId,
     started: false,
   };
@@ -47,6 +49,7 @@ export async function createBoardForRoom(
     server_board,
     client_board,
     roomId,
+    number_of_revealed_tiles: 0,
     started: true,
   };
 
