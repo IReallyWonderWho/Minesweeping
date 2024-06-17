@@ -1,5 +1,5 @@
 <script lang="ts">
-    import Icon from "$lib/icon.svelte";
+    import { enhance } from "$app/forms";
     import { socket } from "$lib/webhook";
 
     let roomId: string = "";
@@ -11,22 +11,20 @@
 </script>
 
 <main class="h-[100vh] flex text-center flex-col justify-center items-center">
-    <h1 class="font-display m-8 h-10 text-5xl text-text tracking-[-0.1em]">
+    <h1 class="font-display m-8 h-10 text-5xl text-text-500 tracking-[-0.1em]">
         Minesweeper
     </h1>
-    <div
-        class="flex flex-col justify-center items-center w-72 bg-[#92CDE6] rounded-lg"
-    >
-        <form on:submit|preventDefault={handleRoomJoin}>
+
+    <div class="card card-compact rounded-lg w-72 bg-primary-600">
+        <form method="POST" class="card-body" use:enhance>
             <input
-                class="w-64 h-11 text-center text-[#797979] font-sans font-bold rounded-lg border-[#797979] bg-white border-[3px] mt-4 mb-[9px]"
+                name="roomId"
+                class="input focus:ring-2 focus:ring-gray-500 border-gray-500 bg-white text-gray-500 text-center font-metropolis font-bold"
                 bind:value={roomId}
                 placeholder="Input room code"
+                required
             />
-            <button
-                class="w-56 h-11 text-text font-sans font-extrabold text-xl bg-[#5A8293] rounded-lg mb-4"
-                >Enter</button
-            >
+            <button class="btn btn-neutral min-h-10 h-10">Enter</button>
         </form>
     </div>
 </main>

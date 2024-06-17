@@ -237,25 +237,79 @@ function subscribe(channel, next, error) {
   }).catch(onError);
   return () => unsubscribe();
 }
+async function exists(key) {
+  await autoConnect();
+  return client.exists(key);
+}
+async function hSet(key, field, value) {
+  const data = JSON.stringify(value);
+  await autoConnect();
+  await client.hSet(key, field, data);
+}
+async function hGet(key, field) {
+  await autoConnect();
+  const value = await client.hGet(key, field);
+  if (value === void 0)
+    return value;
+  return JSON.parse(value);
+}
+async function hGetAll(key) {
+  await autoConnect();
+  const value = await client.hGetAll(key);
+  const map = /* @__PURE__ */ new Map();
+  for (const key2 in value) {
+    map.set(key2, JSON.parse(value[key2]));
+  }
+  return map;
+}
+async function sAdd(key, value) {
+  const data = JSON.stringify(value);
+  await autoConnect();
+  await client.sAdd(key, data);
+}
 var redis = {
   get,
   set,
   all,
-  subscribe
+  subscribe,
+  exists,
+  hSet,
+  hGet,
+  hGetAll,
+  sAdd
 };
 var redis_default = redis;
 
 // src/lib/server/rooms.ts
+function setBoards(roomId, client_board, server_board) {
+  redis_default.hSet(`roomId/${roomId}`, "boards", {
+    server_board,
+    client_board
+  });
+}
+function getBoards(roomId) {
+  return redis_default.hGet(`roomId/${roomId}`, "boards");
+}
+function setRevealedTiles(roomId, number_of_revealed_tiles) {
+  redis_default.hSet(
+    `roomId/${roomId}`,
+    "number_revealed_tiles",
+    number_of_revealed_tiles
+  );
+}
+function getRevealedTiles(roomId) {
+  return redis_default.hGet(`roomId/${roomId}`, "number_of_revealed_tiles");
+}
+function setStart(roomId, started) {
+  redis_default.hSet(`roomId/${roomId}`, "started", started);
+}
+function getStarted(roomId) {
+  return redis_default.hGet(`roomId/${roomId}`, "started");
+}
 async function createRoom(custom_room_id) {
   const roomId = custom_room_id ?? uuidv4();
-  const room = {
-    server_board: void 0,
-    client_board: void 0,
-    number_of_revealed_tiles: 0,
-    roomId,
-    started: false
-  };
-  await redis_default.set(`roomId/${roomId}`, room);
+  setRevealedTiles(roomId, 0);
+  setStart(roomId, false);
   return { roomId };
 }
 async function createBoardForRoom(roomId, number_of_rows_columns, safe_row, safe_column) {
@@ -268,34 +322,30 @@ async function createBoardForRoom(roomId, number_of_rows_columns, safe_row, safe
     safe_row,
     safe_column
   );
-  const room_body = {
-    server_board,
+  setStart(roomId, true);
+  setBoards(roomId, client_board, server_board);
+  return {
     client_board,
-    roomId,
-    number_of_revealed_tiles: 0,
-    started: true
+    server_board
   };
-  console.log(JSON.stringify(room_body));
-  await redis_default.set(`roomId/${roomId}`, room_body);
-  return room_body;
 }
 function getRoom(roomId) {
-  return redis_default.get(`roomId/${roomId}`);
+  return redis_default.hGetAll(`roomId/${roomId}`);
+}
+async function roomExists(roomId) {
+  return await redis_default.exists(`roomId/${roomId}`) === 1;
 }
 
 // src/lib/server/multiplayer.ts
 var NUMBER_OF_ROWS_COLUMNS = 12;
 createRoom("Never going to give your ip");
 function multiplayer(io) {
-  redis_default.subscribe("room/*", (room) => {
-    io.to(`roomId/${room.roomId}`).emit(`roomId/${room.roomId}`, room);
-  });
   io.on("connection", (socket) => {
     socket.on("join_room", async (roomId) => {
       const room = await getRoom(roomId);
       if (room) {
         await socket.join(`roomId/${roomId}`);
-        socket.emit("joined_room", room.roomId);
+        socket.emit("joined_room", roomId);
         return;
       }
       socket.emit("error", "Room not found");
@@ -306,41 +356,36 @@ function multiplayer(io) {
         socket.emit("error", "Room not found");
         return;
       }
-      const { server_board, client_board } = room.started ? room : await createBoardForRoom(room.roomId, NUMBER_OF_ROWS_COLUMNS, x, y);
+      const { server_board, client_board } = await getBoards(roomId) ?? await createBoardForRoom(roomId, NUMBER_OF_ROWS_COLUMNS, x, y);
+      const number_of_revealed_tiles = await getRevealedTiles(roomId) ?? 0;
       const returned_tile = returnTile(
         "Rick Ashley",
         server_board,
         client_board,
-        room.number_of_revealed_tiles,
+        number_of_revealed_tiles,
         x,
         y
       );
-      const room_id = `roomId/${room.roomId}`;
       const increment_by = "x" in returned_tile ? 1 : returned_tile.size;
-      await redis_default.set(room_id, {
-        server_board,
-        client_board,
-        roomId,
-        number_of_revealed_tiles: room.number_of_revealed_tiles + increment_by,
-        started: true
-      });
-      io.to(room_id).emit(
+      setBoards(roomId, client_board, server_board);
+      setRevealedTiles(roomId, number_of_revealed_tiles + increment_by);
+      io.to(`roomId/${roomId}`).emit(
         "board_updated",
         "x" in returned_tile ? returned_tile : Object.fromEntries(returned_tile)
       );
     });
     socket.on("flag_tile", async ({ x, y, roomId }) => {
-      const room = await getRoom(roomId);
+      const room = await roomExists(roomId);
       if (!room) {
         socket.emit("error", "Room not found");
         return;
       }
-      if (!room.started) {
+      const started = await getStarted(roomId);
+      if (!started) {
         socket.emit("error", "Room boards haven't been initalized yet");
         return;
       }
-      const room_id = `roomId/${room.roomId}`;
-      const { server_board, client_board } = room;
+      const { server_board, client_board } = await getBoards(roomId);
       const tile = client_board[x][y];
       if (tile !== UNKNOWN_TILE && tile !== FLAGGED_TILE) {
         socket.emit("error", "Tile cannot be flagged");
@@ -349,14 +394,12 @@ function multiplayer(io) {
       const is_flagged = tile === UNKNOWN_TILE;
       const new_tile = is_flagged ? FLAGGED_TILE : UNKNOWN_TILE;
       client_board[x][y] = new_tile;
-      await redis_default.set(room_id, {
-        server_board,
-        client_board,
-        roomId,
-        started: room.started,
-        number_of_revealed_tiles: room.number_of_revealed_tiles
+      setBoards(roomId, client_board, server_board);
+      io.to(`roomId/${roomId}`).emit("board_updated", {
+        x,
+        y,
+        state: new_tile
       });
-      io.to(room_id).emit("board_updated", { x, y, state: new_tile });
     });
   });
 }

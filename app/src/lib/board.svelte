@@ -5,8 +5,10 @@
 
     const UNKNOWN_TILE = -2;
     const FLAGGED_TILE = -3;
+    const number_of_rows_columns = 12;
 
     export let roomId: string;
+    export let board: Array<Array<number>> = createTempBoard();
 
     socket.on(
         "board_updated",
@@ -43,9 +45,6 @@
         },
     );
 
-    let number_of_rows_columns = 12;
-    let board: Array<Array<number>> = createTempBoard();
-
     function createTempBoard() {
         let real_board = [];
 
@@ -58,12 +57,6 @@
         }
 
         return real_board;
-    }
-
-    async function fetchBoard() {
-        const response = await fetch(`/api/playing?roomId=${roomId}`);
-
-        board = await response.json();
     }
 
     function postTile(x: number, y: number) {
@@ -94,14 +87,6 @@
 
         socket.emit("flag_tile", body);
     }
-
-    // Congrats!! Websockets broke my previously working get request!!
-    // Can't wait to actually have to build an express server just to fix it!!
-    // And also I had to write a whole vite plugin to make it for for development
-    // Why can't sveltekit just support webhooks out of the box....
-    onMount(() => {
-        fetchBoard();
-    });
 </script>
 
 <div

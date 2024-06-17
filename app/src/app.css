@@ -21,6 +21,19 @@
             format("woff");
 }
 
+/* metropolis-latin-700-normal */
+@font-face {
+    font-family: "Metropolis";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 700;
+    src:
+        url(https://cdn.jsdelivr.net/fontsource/fonts/metropolis@latest/latin-700-normal.woff2)
+            format("woff2"),
+        url(https://cdn.jsdelivr.net/fontsource/fonts/metropolis@latest/latin-700-normal.woff)
+            format("woff");
+}
+
 :root {
     font-family: Inter;
     font-size: 16px;

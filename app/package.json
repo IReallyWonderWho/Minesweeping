@@ -13,12 +13,15 @@
     "build:multiplayer-d-ts": "mkdir -p dist; cp src/multiplayer.d.ts dist/"
   },
   "devDependencies": {
+    "@melt-ui/pp": "^0.3.2",
+    "@melt-ui/svelte": "^0.81.0",
     "@sveltejs/adapter-auto": "^3.0.0",
     "@sveltejs/adapter-node": "^5.0.1",
     "@sveltejs/kit": "^2.0.0",
     "@sveltejs/vite-plugin-svelte": "^3.0.0",
     "@types/uuid": "^9.0.8",
     "autoprefixer": "^10.4.19",
+    "daisyui": "^4.12.2",
     "postcss": "^8.4.38",
     "socket.io-client": "^4.7.5",
     "svelte": "^4.2.7",

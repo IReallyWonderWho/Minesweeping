@@ -114,10 +114,50 @@ function subscribe<T>(
     .catch(onError);
   return () => unsubscribe();
 }
+async function exists(key: string) {
+  await autoConnect();
+  return client.exists(key);
+}
+async function hSet<T>(key: string, field: string, value: T) {
+  const data = JSON.stringify(value);
+  await autoConnect();
+  await client.hSet(key, field, data);
+}
+async function hGet<T>(key: string, field: string): Promise<T | undefined> {
+  await autoConnect();
+  const value = await client.hGet(key, field);
+
+  if (value === undefined) return value;
+
+  return JSON.parse(value);
+}
+async function hGetAll<T>(key: string) {
+  await autoConnect();
+  const value = await client.hGetAll(key);
+
+  const map: Map<string, T> = new Map();
+
+  for (const key in value) {
+    map.set(key, JSON.parse(value[key]));
+  }
+
+  return map;
+}
+async function sAdd<T>(key: string, value: T) {
+  const data = JSON.stringify(value);
+  await autoConnect();
+  await client.sAdd(key, data);
+}
+
 const redis = {
   get,
   set,
   all,
   subscribe,
+  exists,
+  hSet,
+  hGet,
+  hGetAll,
+  sAdd,
 };
 export default redis;
