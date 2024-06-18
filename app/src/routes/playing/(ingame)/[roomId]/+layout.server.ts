@@ -7,7 +7,6 @@ export const load: ServerLoad = async ({ params }) => {
   if (!roomId) throw redirect(303, "/");
 
   const room_exists = await roomExists(roomId);
-  console.log(room_exists);
 
   if (!room_exists) throw redirect(303, "/");
 };

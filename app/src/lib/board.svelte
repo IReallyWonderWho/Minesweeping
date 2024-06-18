@@ -1,7 +1,8 @@
 <script lang="ts">
-    import { onMount } from "svelte";
-    import Tile from "./tile.svelte";
-    import { socket } from "./webhook";
+    import { onDestroy, onMount } from "svelte";
+    import type { Socket } from "socket.io-client";
+    import Tile from "./Tile.svelte";
+    import { addToast } from "./Toaster.svelte";
 
     const UNKNOWN_TILE = -2;
     const FLAGGED_TILE = -3;
@@ -9,6 +10,7 @@
 
     export let roomId: string;
     export let board: Array<Array<number>> = createTempBoard();
+    export let socket: Socket;
 
     socket.on(
         "board_updated",
@@ -44,6 +46,22 @@
             }
         },
     );
+
+    socket.on("game_ended", (lost: boolean, player: string) => {
+        addToast({
+            data: {
+                title: lost ? "Game Over 💥" : "Game Won 🥳",
+                description: lost
+                    ? `${player}'s mouse gained sentience and clicked on a mine`
+                    : "Congratulations on your win!",
+                color: "red",
+            },
+        });
+    });
+
+    onDestroy(() => {
+        socket.disconnect();
+    });
 
     function createTempBoard() {
         let real_board = [];

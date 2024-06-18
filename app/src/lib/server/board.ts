@@ -142,7 +142,6 @@ export function returnTile(
   player: string,
   server_board: Array<Array<number>>,
   client_board: Array<Array<number>>,
-  current_revealed_tiles: number,
   row: number,
   column: number,
 ): { x: number; y: number; state: number } | Map<string, number> {
@@ -164,28 +163,11 @@ export function returnTile(
 
       massReveal(server_board, client_board, row, column, visited_tiles);
 
-      // Subtract one to account for the one we added before this
-      // switch case statement
-      current_revealed_tiles += visited_tiles.size;
-
-      if (didGameEnd(server_board, current_revealed_tiles)) {
-        console.log("Yay you won!!");
-      }
-
       return visited_tiles;
-    }
-    case MINE_TILE: {
-      client_board[row][column] = server_tile;
-      gameOver(true, player, row, column);
     }
   }
 
   client_board[row][column] = server_tile;
-  current_revealed_tiles += 1;
-
-  if (didGameEnd(server_board, current_revealed_tiles)) {
-    gameOver(false, player, row, column);
-  }
 
   return {
     x: row,
@@ -194,7 +176,7 @@ export function returnTile(
   };
 }
 
-function didGameEnd(
+export function didGameEnd(
   board: Array<Array<number>>,
   number_of_revealed_tiles: number,
 ) {
@@ -208,13 +190,18 @@ function didGameEnd(
   return number_of_remaining_tiles === number_of_revealed_tiles;
 }
 
-function gameOver(
+export function gameOver(
   caused_by_bomb: boolean,
   player: string,
   row: number,
   column: number,
 ) {
-  console.log("I think the game is over ngl");
+  return {
+    caused_by_bomb,
+    player,
+    x: row,
+    y: column,
+  };
 }
 
 // Use recursion to do a mass reveal

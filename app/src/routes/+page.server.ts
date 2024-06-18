@@ -8,11 +8,11 @@ export const actions: Actions = {
 
     if (!roomId)
       return fail(400, {
-        message: "Room id not provided",
+        error: "Room id not provided",
       });
     if (typeof roomId !== "string")
       return fail(400, {
-        message: "Room id must be a string",
+        error: "Room id must be a string",
       });
 
     const room = await roomExists(roomId);
@@ -20,7 +20,7 @@ export const actions: Actions = {
     return room
       ? redirect(302, `/playing/${roomId}/nickname`)
       : fail(404, {
-          message: "Room not found",
+          error: "Room not found",
         });
   },
 };

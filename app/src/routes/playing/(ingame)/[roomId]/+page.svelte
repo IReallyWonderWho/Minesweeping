@@ -1,23 +1,38 @@
 <script lang="ts">
-    import { goto } from "$app/navigation";
     import { page } from "$app/stores";
-    import Board from "$lib/board.svelte";
-    import { connected, socket } from "$lib/webhook";
+    import Board from "$lib/Board.svelte";
+    import { connected, getSocket } from "$lib/webhook";
     import { onMount } from "svelte";
+    import { addToast } from "$lib/Toaster.svelte";
 
     export let data: {
         board: Array<Array<number>> | undefined;
     };
 
     const roomId = $page.params["roomId"];
+    const socket = roomId ? getSocket(roomId) : undefined;
 
     onMount(() => {
         if (roomId && !connected) {
-            socket.emit("join_room", roomId);
+            socket?.emit("join_room", roomId);
         }
+
+        socket?.on("connect_error", (error) => {
+            addToast({
+                data: {
+                    title: error.name,
+                    description: error.message,
+                    color: "red",
+                },
+            });
+        });
+
+        return () => {
+            socket?.disconnect();
+        };
     });
 </script>
 
-{#if roomId}
-    <Board {roomId} board={data.board} />
+{#if roomId && socket}
+    <Board {socket} {roomId} board={data.board} />
 {/if}

@@ -2,16 +2,6 @@ import { v4 as uuidv4 } from "uuid";
 import { generateSolvedBoard } from "./board";
 import redis from "../redis";
 
-// Started represents if the boards are generated or not
-export interface Room {
-  server_board?: Array<Array<number>>;
-  client_board?: Array<Array<number>>;
-  number_of_revealed_tiles: number;
-  started: boolean;
-  players: Map<string, string>;
-  roomId: string;
-}
-
 export function setBoards(
   roomId: string,
   client_board: Array<Array<number>>,
@@ -36,7 +26,7 @@ export function setRevealedTiles(
 ) {
   redis.hSet(
     `roomId/${roomId}`,
-    "number_revealed_tiles",
+    "number_of_revealed_tiles",
     number_of_revealed_tiles,
   );
 }
@@ -55,21 +45,27 @@ export function getStarted(roomId: string) {
 
 export async function addPlayer(roomId: string, player_name: string) {
   const session_token = uuidv4();
-  const player_key = `player/${session_token}`;
 
-  await Promise.allSettled([
-    redis.hSet(player_key, "name", player_name),
-    redis.hSet(player_key, "roomId", roomId),
-  ]);
-
-  await redis.sAdd(`roomId/${roomId}/players`, session_token);
+  await redis.hSet(`roomId/${roomId}/players`, session_token, {
+    nickname: player_name,
+  });
 
   return session_token;
+}
+
+export async function isSessionIdValid(roomId: string, session_token: string) {}
+
+export async function playerExists(roomId: string, session_token: string) {
+  return await redis.hExists(`roomId/${roomId}/players`, session_token);
 }
 
 export async function createRoom(custom_room_id?: string) {
   const roomId = custom_room_id ?? uuidv4();
 
+  await Promise.allSettled([
+    redis.del(`roomId/${roomId}/players`),
+    redis.del(`roomId/${roomId}`),
+  ]);
   setRevealedTiles(roomId, 0);
   setStart(roomId, false);
 
@@ -111,6 +107,5 @@ export function getRoom(roomId: string) {
 }
 
 export async function roomExists(roomId: string) {
-  console.log(roomId);
-  return (await redis.exists(`roomId/${roomId}`)) === 1;
+  return await redis.exists(`roomId/${roomId}`);
 }

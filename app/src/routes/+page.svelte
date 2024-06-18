@@ -1,13 +1,7 @@
 <script lang="ts">
     import { enhance } from "$app/forms";
-    import { socket } from "$lib/webhook";
 
     let roomId: string = "";
-
-    function handleRoomJoin() {
-        console.log(roomId);
-        socket.emit("join_room", roomId);
-    }
 </script>
 
 <main class="h-[100vh] flex text-center flex-col justify-center items-center">

@@ -116,7 +116,7 @@ function subscribe<T>(
 }
 async function exists(key: string) {
   await autoConnect();
-  return client.exists(key);
+  return (await client.exists(key)) !== 0;
 }
 async function hSet<T>(key: string, field: string, value: T) {
   const data = JSON.stringify(value);
@@ -130,6 +130,10 @@ async function hGet<T>(key: string, field: string): Promise<T | undefined> {
   if (value === undefined) return value;
 
   return JSON.parse(value);
+}
+async function hExists(key: string, field: string) {
+  await autoConnect();
+  return client.hExists(key, field);
 }
 async function hGetAll<T>(key: string) {
   await autoConnect();
@@ -148,6 +152,10 @@ async function sAdd<T>(key: string, value: T) {
   await autoConnect();
   await client.sAdd(key, data);
 }
+async function del(key: string) {
+  await autoConnect();
+  await client.del(key);
+}
 
 const redis = {
   get,
@@ -156,8 +164,10 @@ const redis = {
   subscribe,
   exists,
   hSet,
+  hExists,
   hGet,
   hGetAll,
   sAdd,
+  del,
 };
 export default redis;

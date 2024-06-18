@@ -1,23 +1,28 @@
-import { getBoards, getRoom } from "$lib/server/rooms";
+import { getBoards } from "$lib/server/rooms";
 import { fail } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
+import { isSessionValid } from "$lib/server/auth";
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load: PageServerLoad = async ({ params, cookies }) => {
   const roomId = params["roomId"];
+  const session_id = cookies.get("SESSION_ID");
 
   if (!roomId)
     return fail(400, {
-      message: "Room id not provided",
+      error: "Room id not provided",
+    });
+  if (!session_id)
+    return fail(400, {
+      error: "Session id not provided",
+    });
+  if (!(await isSessionValid(roomId, session_id)))
+    return fail(400, {
+      error: "Session id is not valid",
     });
 
   const room = await getBoards(roomId);
 
-  if (!room)
-    return fail(404, {
-      message: "Room not found",
-    });
-
   return {
-    board: room.client_board,
+    board: room ? room.client_board : undefined,
   };
 };

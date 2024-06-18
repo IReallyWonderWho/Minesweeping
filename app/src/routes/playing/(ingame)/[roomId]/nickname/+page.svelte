@@ -1,9 +1,22 @@
-<script>
+<script lang="ts">
     import { enhance } from "$app/forms";
+    import { addToast } from "$lib/Toaster.svelte";
+
+    export let form;
+
+    $: if (form?.error) {
+        addToast({
+            data: {
+                title: "Nickname submission",
+                description: form.error,
+                color: "red",
+            },
+        });
+    }
 </script>
 
 <div class="hero min-h-screen bg-background">
-    <div class="hero-content text-center">
+    <div class="hero-content flex-col text-center">
         <div class="card card-compact rounded-lg w-72 bg-primary-600">
             <form method="POST" class="card-body" use:enhance>
                 <h2

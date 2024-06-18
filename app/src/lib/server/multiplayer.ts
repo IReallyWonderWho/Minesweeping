@@ -1,5 +1,5 @@
 import type { Server } from "socket.io";
-import { UNKNOWN_TILE, FLAGGED_TILE, returnTile } from "./board";
+import { UNKNOWN_TILE, FLAGGED_TILE, returnTile, didGameEnd } from "./board";
 import {
   createRoom,
   getRoom,
@@ -11,6 +11,8 @@ import {
   getStarted,
   roomExists,
 } from "./rooms";
+import { parse } from "cookie";
+import { isSessionValid } from "./auth";
 
 const NUMBER_OF_ROWS_COLUMNS = 12;
 
@@ -26,6 +28,27 @@ export default function multiplayer(io: Server) {
       room["client_board"],
     );
     }); */
+  io.use(async (socket, next) => {
+    const cookies = parse(socket.handshake.headers.cookie ?? "");
+    const session_id = cookies["SESSION_ID"];
+    const roomId: unknown = socket.handshake.auth.roomId;
+
+    if (
+      session_id !== undefined &&
+      typeof roomId === "string" &&
+      (await isSessionValid(roomId, session_id))
+    ) {
+      console.log("verified!");
+      next();
+    } else {
+      console.log("AAAA");
+      next(
+        new Error(
+          "Session Id is invalid. Please try rejoining the game through the menu.",
+        ),
+      );
+    }
+  });
 
   io.on("connection", (socket) => {
     socket.on("join_room", async (roomId) => {
@@ -59,15 +82,26 @@ export default function multiplayer(io: Server) {
         "Rick Ashley",
         server_board!,
         client_board!,
-        number_of_revealed_tiles,
         x,
         y,
       );
 
       const increment_by = "x" in returned_tile ? 1 : returned_tile.size;
+      const revealed_tiles = number_of_revealed_tiles + increment_by;
+
+      if (
+        ("x" in returned_tile && returned_tile["state"] === -1) ||
+        didGameEnd(client_board, revealed_tiles)
+      ) {
+        const by_mine = "x" in returned_tile && returned_tile["state"] === -1;
+
+        return io
+          .to(`roomId/${roomId}`)
+          .emit("game_ended", by_mine, "Rick Ashley");
+      }
 
       setBoards(roomId, client_board, server_board);
-      setRevealedTiles(roomId, number_of_revealed_tiles + increment_by);
+      setRevealedTiles(roomId, revealed_tiles);
 
       // console.log(new Map().constructor == Object) // False
       // console.log({ "a": "hi" }.constructor == Object) // True
