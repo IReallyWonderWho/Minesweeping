@@ -53,7 +53,12 @@ export async function addPlayer(roomId: string, player_name: string) {
   return session_token;
 }
 
-export async function isSessionIdValid(roomId: string, session_token: string) {}
+export function getPlayerName(roomId: string, session_token: string) {
+  return redis.hGet<{ nickname: string }>(
+    `roomId/${roomId}/players`,
+    session_token,
+  );
+}
 
 export async function playerExists(roomId: string, session_token: string) {
   return await redis.hExists(`roomId/${roomId}/players`, session_token);

@@ -1,9 +1,5 @@
 <script lang="ts">
-    import gsap from "gsap";
-    import { Flip } from "gsap/Flip";
     import { tick } from "svelte";
-
-    gsap.registerPlugin(Flip);
 
     export let x: number;
     export let y: number;
@@ -16,17 +12,28 @@
     let top: string;
 
     async function flip(x: number, y: number) {
-        const state = Flip.getState(".flip");
+        const first = element.getBoundingClientRect();
 
         left = `${x - 16}px`;
         top = `${y - 32}px`;
 
         await tick();
 
-        Flip.from(state, {
-            duration: 0.1,
-            absolute: true,
-        });
+        const last = element.getBoundingClientRect();
+
+        const invert_left = first.left - last.left;
+        const invert_top = first.top - last.top;
+
+        element.animate(
+            [
+                { transform: `translate(${invert_left}px, ${invert_top}px)` },
+                { transform: `translate(0px, 0px)` },
+            ],
+            {
+                duration: 100,
+                easing: "ease-out",
+            },
+        );
     }
 
     $: {

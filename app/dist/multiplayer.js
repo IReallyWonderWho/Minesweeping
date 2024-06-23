@@ -24,6 +24,373 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
+// node_modules/rate-limiter-flexible/lib/RateLimiterAbstract.js
+var require_RateLimiterAbstract = __commonJS({
+  "node_modules/rate-limiter-flexible/lib/RateLimiterAbstract.js"(exports, module) {
+    module.exports = class RateLimiterAbstract {
+      /**
+       *
+       * @param opts Object Defaults {
+       *   points: 4, // Number of points
+       *   duration: 1, // Per seconds
+       *   blockDuration: 0, // Block if consumed more than points in current duration for blockDuration seconds
+       *   execEvenly: false, // Execute allowed actions evenly over duration
+       *   execEvenlyMinDelayMs: duration * 1000 / points, // ms, works with execEvenly=true option
+       *   keyPrefix: 'rlflx',
+       * }
+       */
+      constructor(opts = {}) {
+        this.points = opts.points;
+        this.duration = opts.duration;
+        this.blockDuration = opts.blockDuration;
+        this.execEvenly = opts.execEvenly;
+        this.execEvenlyMinDelayMs = opts.execEvenlyMinDelayMs;
+        this.keyPrefix = opts.keyPrefix;
+      }
+      get points() {
+        return this._points;
+      }
+      set points(value) {
+        this._points = value >= 0 ? value : 4;
+      }
+      get duration() {
+        return this._duration;
+      }
+      set duration(value) {
+        this._duration = typeof value === "undefined" ? 1 : value;
+      }
+      get msDuration() {
+        return this.duration * 1e3;
+      }
+      get blockDuration() {
+        return this._blockDuration;
+      }
+      set blockDuration(value) {
+        this._blockDuration = typeof value === "undefined" ? 0 : value;
+      }
+      get msBlockDuration() {
+        return this.blockDuration * 1e3;
+      }
+      get execEvenly() {
+        return this._execEvenly;
+      }
+      set execEvenly(value) {
+        this._execEvenly = typeof value === "undefined" ? false : Boolean(value);
+      }
+      get execEvenlyMinDelayMs() {
+        return this._execEvenlyMinDelayMs;
+      }
+      set execEvenlyMinDelayMs(value) {
+        this._execEvenlyMinDelayMs = typeof value === "undefined" ? Math.ceil(this.msDuration / this.points) : value;
+      }
+      get keyPrefix() {
+        return this._keyPrefix;
+      }
+      set keyPrefix(value) {
+        if (typeof value === "undefined") {
+          value = "rlflx";
+        }
+        if (typeof value !== "string") {
+          throw new Error("keyPrefix must be string");
+        }
+        this._keyPrefix = value;
+      }
+      _getKeySecDuration(options = {}) {
+        return options && options.customDuration >= 0 ? options.customDuration : this.duration;
+      }
+      getKey(key) {
+        return this.keyPrefix.length > 0 ? `${this.keyPrefix}:${key}` : key;
+      }
+      parseKey(rlKey) {
+        return rlKey.substring(this.keyPrefix.length);
+      }
+      consume() {
+        throw new Error("You have to implement the method 'consume'!");
+      }
+      penalty() {
+        throw new Error("You have to implement the method 'penalty'!");
+      }
+      reward() {
+        throw new Error("You have to implement the method 'reward'!");
+      }
+      get() {
+        throw new Error("You have to implement the method 'get'!");
+      }
+      set() {
+        throw new Error("You have to implement the method 'set'!");
+      }
+      block() {
+        throw new Error("You have to implement the method 'block'!");
+      }
+      delete() {
+        throw new Error("You have to implement the method 'delete'!");
+      }
+    };
+  }
+});
+
+// node_modules/rate-limiter-flexible/lib/component/MemoryStorage/Record.js
+var require_Record = __commonJS({
+  "node_modules/rate-limiter-flexible/lib/component/MemoryStorage/Record.js"(exports, module) {
+    module.exports = class Record {
+      /**
+       *
+       * @param value int
+       * @param expiresAt Date|int
+       * @param timeoutId
+       */
+      constructor(value, expiresAt, timeoutId = null) {
+        this.value = value;
+        this.expiresAt = expiresAt;
+        this.timeoutId = timeoutId;
+      }
+      get value() {
+        return this._value;
+      }
+      set value(value) {
+        this._value = parseInt(value);
+      }
+      get expiresAt() {
+        return this._expiresAt;
+      }
+      set expiresAt(value) {
+        if (!(value instanceof Date) && Number.isInteger(value)) {
+          value = new Date(value);
+        }
+        this._expiresAt = value;
+      }
+      get timeoutId() {
+        return this._timeoutId;
+      }
+      set timeoutId(value) {
+        this._timeoutId = value;
+      }
+    };
+  }
+});
+
+// node_modules/rate-limiter-flexible/lib/RateLimiterRes.js
+var require_RateLimiterRes = __commonJS({
+  "node_modules/rate-limiter-flexible/lib/RateLimiterRes.js"(exports, module) {
+    module.exports = class RateLimiterRes {
+      constructor(remainingPoints, msBeforeNext, consumedPoints, isFirstInDuration) {
+        this.remainingPoints = typeof remainingPoints === "undefined" ? 0 : remainingPoints;
+        this.msBeforeNext = typeof msBeforeNext === "undefined" ? 0 : msBeforeNext;
+        this.consumedPoints = typeof consumedPoints === "undefined" ? 0 : consumedPoints;
+        this.isFirstInDuration = typeof isFirstInDuration === "undefined" ? false : isFirstInDuration;
+      }
+      get msBeforeNext() {
+        return this._msBeforeNext;
+      }
+      set msBeforeNext(ms) {
+        this._msBeforeNext = ms;
+        return this;
+      }
+      get remainingPoints() {
+        return this._remainingPoints;
+      }
+      set remainingPoints(p) {
+        this._remainingPoints = p;
+        return this;
+      }
+      get consumedPoints() {
+        return this._consumedPoints;
+      }
+      set consumedPoints(p) {
+        this._consumedPoints = p;
+        return this;
+      }
+      get isFirstInDuration() {
+        return this._isFirstInDuration;
+      }
+      set isFirstInDuration(value) {
+        this._isFirstInDuration = Boolean(value);
+      }
+      _getDecoratedProperties() {
+        return {
+          remainingPoints: this.remainingPoints,
+          msBeforeNext: this.msBeforeNext,
+          consumedPoints: this.consumedPoints,
+          isFirstInDuration: this.isFirstInDuration
+        };
+      }
+      [Symbol.for("nodejs.util.inspect.custom")]() {
+        return this._getDecoratedProperties();
+      }
+      toString() {
+        return JSON.stringify(this._getDecoratedProperties());
+      }
+      toJSON() {
+        return this._getDecoratedProperties();
+      }
+    };
+  }
+});
+
+// node_modules/rate-limiter-flexible/lib/component/MemoryStorage/MemoryStorage.js
+var require_MemoryStorage = __commonJS({
+  "node_modules/rate-limiter-flexible/lib/component/MemoryStorage/MemoryStorage.js"(exports, module) {
+    var Record = require_Record();
+    var RateLimiterRes = require_RateLimiterRes();
+    module.exports = class MemoryStorage {
+      constructor() {
+        this._storage = {};
+      }
+      incrby(key, value, durationSec) {
+        if (this._storage[key]) {
+          const msBeforeExpires = this._storage[key].expiresAt ? this._storage[key].expiresAt.getTime() - (/* @__PURE__ */ new Date()).getTime() : -1;
+          if (!this._storage[key].expiresAt || msBeforeExpires > 0) {
+            this._storage[key].value = this._storage[key].value + value;
+            return new RateLimiterRes(0, msBeforeExpires, this._storage[key].value, false);
+          }
+          return this.set(key, value, durationSec);
+        }
+        return this.set(key, value, durationSec);
+      }
+      set(key, value, durationSec) {
+        const durationMs = durationSec * 1e3;
+        if (this._storage[key] && this._storage[key].timeoutId) {
+          clearTimeout(this._storage[key].timeoutId);
+        }
+        this._storage[key] = new Record(
+          value,
+          durationMs > 0 ? new Date(Date.now() + durationMs) : null
+        );
+        if (durationMs > 0) {
+          this._storage[key].timeoutId = setTimeout(() => {
+            delete this._storage[key];
+          }, durationMs);
+          if (this._storage[key].timeoutId.unref) {
+            this._storage[key].timeoutId.unref();
+          }
+        }
+        return new RateLimiterRes(0, durationMs === 0 ? -1 : durationMs, this._storage[key].value, true);
+      }
+      /**
+       *
+       * @param key
+       * @returns {*}
+       */
+      get(key) {
+        if (this._storage[key]) {
+          const msBeforeExpires = this._storage[key].expiresAt ? this._storage[key].expiresAt.getTime() - (/* @__PURE__ */ new Date()).getTime() : -1;
+          return new RateLimiterRes(0, msBeforeExpires, this._storage[key].value, false);
+        }
+        return null;
+      }
+      /**
+       *
+       * @param key
+       * @returns {boolean}
+       */
+      delete(key) {
+        if (this._storage[key]) {
+          if (this._storage[key].timeoutId) {
+            clearTimeout(this._storage[key].timeoutId);
+          }
+          delete this._storage[key];
+          return true;
+        }
+        return false;
+      }
+    };
+  }
+});
+
+// node_modules/rate-limiter-flexible/lib/RateLimiterMemory.js
+var require_RateLimiterMemory = __commonJS({
+  "node_modules/rate-limiter-flexible/lib/RateLimiterMemory.js"(exports, module) {
+    var RateLimiterAbstract = require_RateLimiterAbstract();
+    var MemoryStorage = require_MemoryStorage();
+    var RateLimiterRes = require_RateLimiterRes();
+    var RateLimiterMemory2 = class extends RateLimiterAbstract {
+      constructor(opts = {}) {
+        super(opts);
+        this._memoryStorage = new MemoryStorage();
+      }
+      /**
+       *
+       * @param key
+       * @param pointsToConsume
+       * @param {Object} options
+       * @returns {Promise<RateLimiterRes>}
+       */
+      consume(key, pointsToConsume = 1, options = {}) {
+        return new Promise((resolve, reject) => {
+          const rlKey = this.getKey(key);
+          const secDuration = this._getKeySecDuration(options);
+          let res = this._memoryStorage.incrby(rlKey, pointsToConsume, secDuration);
+          res.remainingPoints = Math.max(this.points - res.consumedPoints, 0);
+          if (res.consumedPoints > this.points) {
+            if (this.blockDuration > 0 && res.consumedPoints <= this.points + pointsToConsume) {
+              res = this._memoryStorage.set(rlKey, res.consumedPoints, this.blockDuration);
+            }
+            reject(res);
+          } else if (this.execEvenly && res.msBeforeNext > 0 && !res.isFirstInDuration) {
+            let delay = Math.ceil(res.msBeforeNext / (res.remainingPoints + 2));
+            if (delay < this.execEvenlyMinDelayMs) {
+              delay = res.consumedPoints * this.execEvenlyMinDelayMs;
+            }
+            setTimeout(resolve, delay, res);
+          } else {
+            resolve(res);
+          }
+        });
+      }
+      penalty(key, points = 1, options = {}) {
+        const rlKey = this.getKey(key);
+        return new Promise((resolve) => {
+          const secDuration = this._getKeySecDuration(options);
+          const res = this._memoryStorage.incrby(rlKey, points, secDuration);
+          res.remainingPoints = Math.max(this.points - res.consumedPoints, 0);
+          resolve(res);
+        });
+      }
+      reward(key, points = 1, options = {}) {
+        const rlKey = this.getKey(key);
+        return new Promise((resolve) => {
+          const secDuration = this._getKeySecDuration(options);
+          const res = this._memoryStorage.incrby(rlKey, -points, secDuration);
+          res.remainingPoints = Math.max(this.points - res.consumedPoints, 0);
+          resolve(res);
+        });
+      }
+      /**
+       * Block any key for secDuration seconds
+       *
+       * @param key
+       * @param secDuration
+       */
+      block(key, secDuration) {
+        const msDuration = secDuration * 1e3;
+        const initPoints = this.points + 1;
+        this._memoryStorage.set(this.getKey(key), initPoints, secDuration);
+        return Promise.resolve(
+          new RateLimiterRes(0, msDuration === 0 ? -1 : msDuration, initPoints)
+        );
+      }
+      set(key, points, secDuration) {
+        const msDuration = (secDuration >= 0 ? secDuration : this.duration) * 1e3;
+        this._memoryStorage.set(this.getKey(key), points, secDuration);
+        return Promise.resolve(
+          new RateLimiterRes(0, msDuration === 0 ? -1 : msDuration, points)
+        );
+      }
+      get(key) {
+        const res = this._memoryStorage.get(this.getKey(key));
+        if (res !== null) {
+          res.remainingPoints = Math.max(this.points - res.consumedPoints, 0);
+        }
+        return Promise.resolve(res);
+      }
+      delete(key) {
+        return Promise.resolve(this._memoryStorage.delete(this.getKey(key)));
+      }
+    };
+    module.exports = RateLimiterMemory2;
+  }
+});
+
 // node_modules/cookie/index.js
 var require_cookie = __commonJS({
   "node_modules/cookie/index.js"(exports) {
@@ -169,6 +536,9 @@ var require_cookie = __commonJS({
   }
 });
 
+// src/lib/server/multiplayer.ts
+var import_RateLimiterMemory = __toESM(require_RateLimiterMemory(), 1);
+
 // src/lib/server/board.ts
 var FLAGGED_TILE = -3;
 var UNKNOWN_TILE = -2;
@@ -194,14 +564,11 @@ function getNeighbors(board, row, column) {
   const neighbors = [];
   for (let x = -1; x < 2; x++) {
     for (let y = -1; y < 2; y++) {
-      if (x === 0 && y === 0)
-        continue;
+      if (x === 0 && y === 0) continue;
       const _row = board[row + x];
-      if (_row === void 0)
-        continue;
+      if (_row === void 0) continue;
       const _column = _row[column + y];
-      if (_column === void 0)
-        continue;
+      if (_column === void 0) continue;
       neighbors.push([_column, row + x, column + y]);
     }
   }
@@ -211,8 +578,7 @@ function computeBoard(board, number_of_rows_columns) {
   for (let x = 0; x < number_of_rows_columns; x++) {
     for (let y = 0; y < number_of_rows_columns; y++) {
       const tile = board[x][y];
-      if (tile === MINE_TILE)
-        continue;
+      if (tile === MINE_TILE) continue;
       let surrounding_bombs = 0;
       for (const [neighbor] of getNeighbors(board, x, y)) {
         if (neighbor === MINE_TILE) {
@@ -278,14 +644,11 @@ function didGameEnd(board, number_of_revealed_tiles) {
 }
 function massReveal(server_board, client_board, row, column, visited_tiles) {
   let id = `${row},${column}`;
-  if (visited_tiles.has(id))
-    return;
-  if (client_board[row][column] !== UNKNOWN_TILE)
-    return;
+  if (visited_tiles.has(id)) return;
+  if (client_board[row][column] !== UNKNOWN_TILE) return;
   visited_tiles.set(id, server_board[row][column]);
   client_board[row][column] = server_board[row][column];
-  if (server_board[row][column] !== ZERO_TILE)
-    return;
+  if (server_board[row][column] !== ZERO_TILE) return;
   for (const [_neighbor, x, y] of getNeighbors(server_board, row, column)) {
     if (!visited_tiles.has(`${x},${y}`)) {
       massReveal(server_board, client_board, x, y, visited_tiles);
@@ -405,8 +768,7 @@ async function hSet(key, field, value) {
 async function hGet(key, field) {
   await autoConnect();
   const value = await client.hGet(key, field);
-  if (value === void 0)
-    return value;
+  if (value === void 0) return value;
   return JSON.parse(value);
 }
 async function hExists(key, field) {
@@ -472,6 +834,12 @@ function setStart(roomId, started) {
 function getStarted(roomId) {
   return redis_default.hGet(`roomId/${roomId}`, "started");
 }
+function getPlayerName(roomId, session_token) {
+  return redis_default.hGet(
+    `roomId/${roomId}/players`,
+    session_token
+  );
+}
 async function playerExists(roomId, session_token) {
   return await redis_default.hExists(`roomId/${roomId}/players`, session_token);
 }
@@ -487,8 +855,7 @@ async function createRoom(custom_room_id) {
 }
 async function createBoardForRoom(roomId, number_of_rows_columns, safe_row, safe_column) {
   const room = await getRoom(roomId);
-  if (!room)
-    throw "Room not found";
+  if (!room) throw "Room not found";
   console.log("generating boards!");
   const [server_board, client_board] = generateSolvedBoard(
     number_of_rows_columns,
@@ -514,18 +881,35 @@ var import_cookie = __toESM(require_cookie(), 1);
 
 // src/lib/server/auth.ts
 async function isSessionValid(roomId, session_id) {
-  if (!await roomExists(roomId))
-    return false;
+  if (!await roomExists(roomId)) return false;
   return playerExists(roomId, session_id);
 }
 
 // src/lib/server/multiplayer.ts
 var NUMBER_OF_ROWS_COLUMNS = 12;
+var rateLimiter = new import_RateLimiterMemory.default({
+  points: 25,
+  duration: 1
+});
 createRoom("Never going to give your ip");
+function getSessionId(cookie_header) {
+  const cookies = (0, import_cookie.parse)(cookie_header ?? "");
+  return cookies["SESSION_ID"];
+}
+async function consumeRateLimit(cookie_header, points) {
+  try {
+    const session_id = getSessionId(cookie_header);
+    if (!session_id) return false;
+    await rateLimiter.consume(session_id, points);
+    return true;
+  } catch (error) {
+    console.warn(error);
+    return false;
+  }
+}
 function multiplayer(io) {
   io.use(async (socket, next) => {
-    const cookies = (0, import_cookie.parse)(socket.handshake.headers.cookie ?? "");
-    const session_id = cookies["SESSION_ID"];
+    const session_id = getSessionId(socket.handshake.headers.cookie);
     const roomId = socket.handshake.auth.roomId;
     if (session_id !== void 0 && typeof roomId === "string" && await isSessionValid(roomId, session_id)) {
       console.log("verified!");
@@ -541,6 +925,8 @@ function multiplayer(io) {
   });
   io.on("connection", (socket) => {
     socket.on("join_room", async (roomId) => {
+      if (!await consumeRateLimit(socket.handshake.headers.cookie, 5)) return;
+      if (typeof roomId !== "string") return;
       const room = await getRoom(roomId);
       if (room) {
         await socket.join(`roomId/${roomId}`);
@@ -549,7 +935,11 @@ function multiplayer(io) {
       }
       socket.emit("error", "Room not found");
     });
-    socket.on("choose_tile", async ({ x, y, roomId }) => {
+    socket.on("choose_tile", async (x, y) => {
+      if (!await consumeRateLimit(socket.handshake.headers.cookie, 1)) return;
+      const roomId = socket.handshake.auth.roomId;
+      if (typeof x !== "number" || typeof y !== "number" || typeof roomId !== "string")
+        return;
       const room = await getRoom(roomId);
       if (!room) {
         socket.emit("error", "Room not found");
@@ -577,7 +967,11 @@ function multiplayer(io) {
         "x" in returned_tile ? returned_tile : Object.fromEntries(returned_tile)
       );
     });
-    socket.on("flag_tile", async ({ x, y, roomId }) => {
+    socket.on("flag_tile", async (x, y) => {
+      if (!await consumeRateLimit(socket.handshake.headers.cookie, 1)) return;
+      const roomId = socket.handshake.auth.roomId;
+      if (typeof x !== "number" || typeof y !== "number" || typeof roomId !== "string")
+        return;
       const room = await roomExists(roomId);
       if (!room) {
         socket.emit("error", "Room not found");
@@ -603,6 +997,26 @@ function multiplayer(io) {
         y,
         state: new_tile
       });
+    });
+    socket.on("mouse_move", async (x, y) => {
+      if (!await consumeRateLimit(socket.handshake.headers.cookie ?? "", 1))
+        return;
+      const roomId = socket.handshake.auth.roomId;
+      if (typeof x !== "number" || typeof y !== "number" || typeof roomId !== "string")
+        return;
+      const room_exists = await roomExists(roomId);
+      if (!room_exists) {
+        socket.emit("error", "Room not found");
+        return;
+      }
+      const session_id = getSessionId(socket.handshake.headers.cookie);
+      if (!isSessionValid(roomId, session_id)) {
+        socket.emit("error", "Session ID");
+        return;
+      }
+      const player_name = await getPlayerName(roomId, session_id);
+      const nickname = player_name ? player_name["nickname"] : void 0;
+      io.to(`roomId/${roomId}`).emit("update_player_mouse", { nickname, x, y });
     });
   });
 }

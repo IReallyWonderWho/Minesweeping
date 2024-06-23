@@ -1,4 +1,6 @@
 import type { Server } from "socket.io";
+// @ts-ignore
+import RateLimiterMemory from "rate-limiter-flexible/lib/RateLimiterMemory.js";
 import { UNKNOWN_TILE, FLAGGED_TILE, returnTile, didGameEnd } from "./board";
 import {
   createRoom,
@@ -10,13 +12,43 @@ import {
   setBoards,
   getStarted,
   roomExists,
+  getPlayerName,
 } from "./rooms";
 import { parse } from "cookie";
 import { isSessionValid } from "./auth";
 
 const NUMBER_OF_ROWS_COLUMNS = 12;
 
+const rateLimiter = new RateLimiterMemory({
+  points: 25,
+  duration: 1,
+});
+
 createRoom("Never going to give your ip");
+
+function getSessionId(cookie_header: string | undefined) {
+  const cookies = parse(cookie_header ?? "");
+
+  return cookies["SESSION_ID"];
+}
+
+async function consumeRateLimit(
+  cookie_header: string | undefined,
+  points: number,
+): Promise<true | unknown> {
+  try {
+    const session_id = getSessionId(cookie_header);
+
+    if (!session_id) return false;
+
+    await rateLimiter.consume(session_id, points);
+
+    return true;
+  } catch (error) {
+    console.warn(error);
+    return false;
+  }
+}
 
 // The room data on the server and sveltekit are completely different, so
 // we need a layer to actually synchronize them
@@ -29,8 +61,7 @@ export default function multiplayer(io: Server) {
     );
     }); */
   io.use(async (socket, next) => {
-    const cookies = parse(socket.handshake.headers.cookie ?? "");
-    const session_id = cookies["SESSION_ID"];
+    const session_id = getSessionId(socket.handshake.headers.cookie);
     const roomId: unknown = socket.handshake.auth.roomId;
 
     if (
@@ -51,7 +82,10 @@ export default function multiplayer(io: Server) {
   });
 
   io.on("connection", (socket) => {
-    socket.on("join_room", async (roomId) => {
+    socket.on("join_room", async (roomId: unknown) => {
+      if (!(await consumeRateLimit(socket.handshake.headers.cookie, 5))) return;
+      if (typeof roomId !== "string") return;
+
       const room = await getRoom(roomId);
 
       if (room) {
@@ -63,7 +97,17 @@ export default function multiplayer(io: Server) {
       socket.emit("error", "Room not found");
     });
 
-    socket.on("choose_tile", async ({ x, y, roomId }) => {
+    socket.on("choose_tile", async (x: unknown, y: unknown) => {
+      if (!(await consumeRateLimit(socket.handshake.headers.cookie, 1))) return;
+
+      const roomId: unknown = socket.handshake.auth.roomId;
+
+      if (
+        typeof x !== "number" ||
+        typeof y !== "number" ||
+        typeof roomId !== "string"
+      )
+        return;
       const room = await getRoom(roomId);
 
       if (!room) {
@@ -113,7 +157,18 @@ export default function multiplayer(io: Server) {
       );
     });
 
-    socket.on("flag_tile", async ({ x, y, roomId }) => {
+    socket.on("flag_tile", async (x: unknown, y: unknown) => {
+      if (!(await consumeRateLimit(socket.handshake.headers.cookie, 1))) return;
+
+      const roomId: unknown = socket.handshake.auth.roomId;
+
+      if (
+        typeof x !== "number" ||
+        typeof y !== "number" ||
+        typeof roomId !== "string"
+      )
+        return;
+
       const room = await roomExists(roomId);
 
       if (!room) {
@@ -151,6 +206,39 @@ export default function multiplayer(io: Server) {
         y,
         state: new_tile,
       });
+    });
+
+    socket.on("mouse_move", async (x: unknown, y: unknown) => {
+      if (!(await consumeRateLimit(socket.handshake.headers.cookie ?? "", 1)))
+        return;
+
+      const roomId: unknown = socket.handshake.auth.roomId;
+
+      if (
+        typeof x !== "number" ||
+        typeof y !== "number" ||
+        typeof roomId !== "string"
+      )
+        return;
+
+      const room_exists = await roomExists(roomId);
+
+      if (!room_exists) {
+        socket.emit("error", "Room not found");
+        return;
+      }
+
+      const session_id = getSessionId(socket.handshake.headers.cookie);
+
+      if (!isSessionValid(roomId, session_id)) {
+        socket.emit("error", "Session ID");
+        return;
+      }
+
+      const player_name = await getPlayerName(roomId, session_id);
+      const nickname = player_name ? player_name["nickname"] : undefined;
+
+      io.to(`roomId/${roomId}`).emit("update_player_mouse", { nickname, x, y });
     });
   });
 }

@@ -25,8 +25,8 @@
     let element: any;
     let domrect: DOMRect | undefined;
 
-    let test_x = 0;
-    let test_y = 0;
+    // Nickname: [x, y]
+    let player_positions: Map<string, [number, number]> = new Map();
 
     function clamp(num: number, min: number, max: number) {
         return Math.min(Math.max(num, min), max);
@@ -39,7 +39,12 @@
         if (!domrect) return;
         const { pageX, pageY } = event;
         const { top, right, bottom, left } = domrect;
-        const [x2, y2] = [clamp(pageX, left, right), clamp(pageY, top, bottom)];
+        const [x2, y2] = [
+            clamp(pageX - left, 0, right - left),
+            clamp(pageY - top, 0, bottom - top),
+        ];
+
+        console.log(`x: ${x2}, y: ${y2}`);
 
         const [x, y] = [x2 - previous_position[0], y2 - previous_position[1]];
         // a^2 + b^2 = c^2
@@ -48,9 +53,13 @@
         last_call = now;
 
         if (distance >= CHANGE_THRESHOLD) {
-            test_x = x;
-            test_y = y;
+            socket?.emit("mouse_move", x, y);
         }
+    }
+
+    function windowResized() {
+        domrect = element.getBoundingClientRect();
+        console.log(domrect);
     }
 
     onMount(() => {
@@ -68,6 +77,12 @@
             });
         });
 
+        socket?.on("update_player_mouse", ({ nickname, x, y }) => {
+            player_positions.set(nickname, [x, y]);
+            player_positions = player_positions;
+            console.log(player_positions);
+        });
+
         console.log(element);
         domrect = element.getBoundingClientRect();
 
@@ -77,16 +92,22 @@
     });
 </script>
 
-<main class="hero items-center justify-center">
+<svelte:window on:resize={windowResized} />
+
+<main class="hero items-center justify-center overflow-hidden">
     {#if roomId && socket}
         <Board
             bind:element
-            className=""
+            class="relative"
             {socket}
-            {roomId}
             board={data.board}
             on:mousemove={handleMouseMove}
-        />
+        >
+            <div slot="players">
+                {#each player_positions as [nickname, [x, y]] (nickname)}
+                    <Player height="32px" width="32px" {x} {y} />
+                {/each}
+            </div>
+        </Board>
     {/if}
-    <Player height="32px" width="32px" x={test_x} y={test_y} />
 </main>
