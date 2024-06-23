@@ -1,6 +1,6 @@
 <script lang="ts">
     import { enhance } from "$app/forms";
-    import { addToast } from "$lib/Toaster.svelte";
+    import { addToast } from "$lib/components/Toaster.svelte";
 
     export let form;
 

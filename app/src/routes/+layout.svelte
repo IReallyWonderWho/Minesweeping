@@ -1,5 +1,5 @@
 <script lang="ts">
-    import Toaster from "$lib/Toaster.svelte";
+    import Toaster from "$lib/components/Toaster.svelte";
     import "../app.css";
 </script>
 

@@ -18,7 +18,7 @@ export const actions: Actions = {
     const room = await roomExists(roomId);
 
     return room
-      ? redirect(302, `/playing/${roomId}/nickname`)
+      ? redirect(303, `/playing/${roomId}/nickname`)
       : fail(404, {
           error: "Room not found",
         });

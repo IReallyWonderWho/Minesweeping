@@ -1,6 +1,6 @@
 <script>
     import { page } from "$app/stores";
-    import Icon from "$lib/Icon.svelte";
+    import Icon from "$lib/components/Icon.svelte";
 </script>
 
 <main class="flex h-[100vh] flex-col justify-center items-center">

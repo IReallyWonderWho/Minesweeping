@@ -1,7 +1,10 @@
+import redis from "$lib/redis";
 import { addPlayer, roomExists } from "$lib/server/rooms";
 import { fail, redirect, type Actions } from "@sveltejs/kit";
 
-function isValidNickname(nickname: string) {
+async function isValidNickname(roomId: string, nickname: string) {
+  const a = await redis.hGetAll(`roomId/${roomId}/players`);
+  console.log(a);
   // Regex pattern to allow only letters and numbers
   const pattern = /^[a-zA-Z0-9]+$/;
   return pattern.test(nickname);
@@ -22,7 +25,7 @@ export const actions: Actions = {
       return fail(404, {
         error: "Room not found",
       });
-    if (!isValidNickname(nickname))
+    if (!(await isValidNickname(roomId, nickname)))
       return fail(400, {
         error:
           "Nickname can only contain letters and numbers (no special characters or spaces)",
@@ -41,6 +44,6 @@ export const actions: Actions = {
       path: "/",
     });
 
-    throw redirect(302, `/playing/${roomId}`);
+    throw redirect(303, `/playing/${roomId}`);
   },
 };

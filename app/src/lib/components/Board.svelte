@@ -11,6 +11,8 @@
     export let roomId: string;
     export let board: Array<Array<number>> = createTempBoard();
     export let socket: Socket;
+    export let className: string;
+    export let element: Element;
 
     socket.on(
         "board_updated",
@@ -108,7 +110,10 @@
 </script>
 
 <div
-    class="w-[500px] h-[500px] bg-black grid grid-cols-12 grid-rows-12 justify-items-stretch"
+    bind:this={element}
+    class={`w-[500px] h-[500px] bg-black grid grid-cols-12 grid-rows-12 justify-items-stretch ${className}`}
+    on:mousemove
+    role="main"
 >
     <!--Row-->
     {#each { length: number_of_rows_columns } as _, x}
