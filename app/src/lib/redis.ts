@@ -1,5 +1,5 @@
-// Taken from https://github.com/bfanger/multiplayer-dice-game/blob/main/src/lib/services/redis.ts
-// Thanks!!
+// Forked version from https://github.com/bfanger/multiplayer-dice-game/blob/main/src/lib/services/redis.ts
+// Redis should be good enough for this project as all data is temporary and destroyed later
 import { createClient } from "redis";
 
 const redisHost = process.env.REDIS_HOST || "localhost";

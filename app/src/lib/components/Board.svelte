@@ -29,6 +29,8 @@
     function postTile(x: number, y: number) {
         if (board && board[x][y] !== UNKNOWN_TILE) return;
 
+        console.log(`x: ${x}, y: ${y}`);
+
         socket.emit("choose_tile", x, y);
     }
 

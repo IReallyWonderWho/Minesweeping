@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { generateSolvedBoard } from "./board";
 import redis from "../redis";
+import { getRandomHSL } from "$lib/utility";
 
 export function setBoards(
   roomId: string,
@@ -46,15 +47,18 @@ export function getStarted(roomId: string) {
 export async function addPlayer(roomId: string, player_name: string) {
   const session_token = uuidv4();
 
+  const color = getRandomHSL();
+
   await redis.hSet(`roomId/${roomId}/players`, session_token, {
     nickname: player_name,
+    color,
   });
 
   return session_token;
 }
 
-export function getPlayerName(roomId: string, session_token: string) {
-  return redis.hGet<{ nickname: string }>(
+export function getPlayer(roomId: string, session_token: string) {
+  return redis.hGet<{ nickname: string; color: string }>(
     `roomId/${roomId}/players`,
     session_token,
   );

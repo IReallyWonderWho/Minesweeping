@@ -1,9 +1,9 @@
 <script lang="ts">
     import { page } from "$app/stores";
     import Board from "$lib/components/Board.svelte";
-    import Player from "$lib/components/Player.svelte";
+    import Cursor from "$lib/components/Cursor.svelte";
     import { connected, getSocket } from "$lib/webhook";
-    import { onMount, type ComponentType, SvelteComponent } from "svelte";
+    import { onMount } from "svelte";
     import { addToast } from "$lib/components/Toaster.svelte";
 
     export let data: {
@@ -25,8 +25,8 @@
     let element: any;
     let domrect: DOMRect | undefined;
 
-    // Nickname: [x, y]
-    let player_positions: Map<string, [number, number]> = new Map();
+    // Nickname: [x, y, hsl color]
+    let player_positions: Map<string, [number, number, string]> = new Map();
 
     function clamp(num: number, min: number, max: number) {
         return Math.min(Math.max(num, min), max);
@@ -37,14 +37,13 @@
 
         if (now - last_call < UPDATE_FPS) return;
         if (!domrect) return;
+
         const { pageX, pageY } = event;
         const { top, right, bottom, left } = domrect;
         const [x2, y2] = [
             clamp(pageX - left, 0, right - left),
             clamp(pageY - top, 0, bottom - top),
         ];
-
-        console.log(`x: ${x2}, y: ${y2}`);
 
         const [x, y] = [x2 - previous_position[0], y2 - previous_position[1]];
         // a^2 + b^2 = c^2
@@ -59,7 +58,6 @@
 
     function windowResized() {
         domrect = element.getBoundingClientRect();
-        console.log(domrect);
     }
 
     onMount(() => {
@@ -77,13 +75,11 @@
             });
         });
 
-        socket?.on("update_player_mouse", ({ nickname, x, y }) => {
-            player_positions.set(nickname, [x, y]);
+        socket?.on("update_player_mouse", ({ nickname, color, x, y }) => {
+            player_positions.set(nickname, [x, y, color]);
             player_positions = player_positions;
-            console.log(player_positions);
         });
 
-        console.log(element);
         domrect = element.getBoundingClientRect();
 
         return () => {
@@ -94,20 +90,30 @@
 
 <svelte:window on:resize={windowResized} />
 
-<main class="hero items-center justify-center overflow-hidden">
+<main
+    class="h-[100vh] grid grid-cols-3 items-center justify-items-center overflow-hidden"
+>
     {#if roomId && socket}
         <Board
             bind:element
-            class="relative"
+            class="col-start-2 relative"
             {socket}
             board={data.board}
             on:mousemove={handleMouseMove}
         >
             <div slot="players">
-                {#each player_positions as [nickname, [x, y]] (nickname)}
-                    <Player height="32px" width="32px" {x} {y} />
+                {#each player_positions as [nickname, [x, y, color]] (nickname)}
+                    <Cursor height="32px" width="32px" {x} {y} {color} />
                 {/each}
             </div>
         </Board>
     {/if}
+
+    <div
+        class="ml-auto mr-3 max-w-[218px] max-h-[100vh] overflow-x-auto overflow-y-auto rounded-lg bg-[#0D181F] border-[2px] border-[#384754]"
+    >
+        <h3 class="mx-[26px] my-[9px] font-metropolis font-bold text-base">
+            Players
+        </h3>
+    </div>
 </main>

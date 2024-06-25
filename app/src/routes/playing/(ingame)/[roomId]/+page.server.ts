@@ -1,7 +1,7 @@
 import { getBoards } from "$lib/server/rooms";
-import { error, redirect } from "@sveltejs/kit";
+import { redirect } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
-import { isSessionValid } from "$lib/server/auth";
+import { isSessionValid } from "$lib/server/multiplayer/verifySession";
 
 export const load: PageServerLoad = async ({ params, cookies }) => {
   const roomId = params["roomId"];
@@ -9,7 +9,8 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
 
   if (!roomId) throw redirect(307, "/");
   if (!session_id) throw redirect(307, "/");
-  if (!(await isSessionValid(roomId, session_id))) throw redirect(307, "/");
+  console.log(await isSessionValid(session_id, roomId));
+  if (!(await isSessionValid(session_id, roomId))) throw redirect(307, "/");
 
   const room = await getBoards(roomId);
 
