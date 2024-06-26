@@ -26,16 +26,17 @@
     let scrollElement: HTMLDivElement;
 
     $: right = $open
-        ? scrollElement
-            ? `calc(${scrollElement.getBoundingClientRect().width}px + 0.5rem)`
-            : "0rem"
-        : "0rem";
+        ? "0.75rem"
+        : scrollElement
+          ? `calc(${-scrollElement.getBoundingClientRect().width}px)`
+          : "0rem";
     $: rotation = $open ? "180deg" : "360deg";
 
     function flip({ next }: { curr: boolean; next: boolean }) {
-        const state = Flip.getState(".animate-button");
+        const state = Flip.getState(".animate-box");
 
         requestAnimationFrame(() => {
+            console.log(right);
             Flip.from(state, {
                 duration: 0.5,
             });
@@ -50,6 +51,7 @@
     } = createCollapsible({
         defaultOpen: true,
         onOpenChange: flip,
+        forceVisible: true,
     });
 
     const [collapsibleRoot, collapsibleContent, trigger] = [
@@ -61,12 +63,12 @@
 
 <aside
     use:melt={$collapsibleRoot}
-    class="flex relative items-center flex-row ml-auto mr-3"
+    class="animate-box ml-auto mr-3 flex items-center flex-row"
+    style="margin-right: {right}"
 >
     <button
         use:melt={$trigger}
-        class="animate-button absolute flex justify-center items-center rounded-full bg-neutral-900 h-12 w-12"
-        style="right: {right}"
+        class="animate-button flex justify-center items-center rounded-full bg-neutral-900 h-12 w-12 mr-1"
     >
         <svg
             style="rotate: {rotation}"
@@ -86,60 +88,56 @@
             />
         </svg>
     </button>
-    {#if $open}
-        <div
-            bind:this={scrollElement}
-            use:melt={$root}
-            in:fly={{ x: 300, opacity: 1, duration: 600 }}
-            out:fly={{ x: 200, opacity: 1, duration: 600 }}
-            class="flex flex-col max-w-[218px] max-h-[100vh] overflow-y-hidden rounded-lg bg-neutral-900"
-        >
-            <div use:melt={$viewport} class="h-full w-full rounded-[inherit]">
-                <div use:melt={$collapsibleContent}>
-                    <div class="p-4 px-[26px] mr-0" use:melt={$content}>
-                        <h3
-                            class="mb-4 text-text-500 font-metropolis font-bold text-base"
-                        >
-                            Players
-                        </h3>
-                        <Player color="#8a601e" nickname="Rick Ashely" />
-                        <Player color="#8a601e" nickname="Rick Ashely" />
-                        <Player color="#8a601e" nickname="Rick Ashely" />
-                        <Player color="#8a601e" nickname="Rick Ashely" />
-                        <Player color="#8a601e" nickname="Rick Ashely" />
-                        <Player color="#8a601e" nickname="Rick Ashely" />
-                        <Player color="#8a601e" nickname="Rick Ashely" />
-                        <Player color="#8a601e" nickname="Rick Ashely" />
-                        <Player color="#8a601e" nickname="Rick Ashely" />
-                        <Player color="#8a601e" nickname="Rick Ashely" />
-                        <Player color="#8a601e" nickname="Rick Ashely" />
-                        <Player color="#8a601e" nickname="Rick Ashely" />
-                        <Player color="#8a601e" nickname="Rick Ashely" />
-                        <Player color="#8a601e" nickname="Rick Ashely" />
-                        <Player color="#8a601e" nickname="Rick Ashely" />
-                        <Player color="#8a601e" nickname="Rick Ashely" />
-                    </div>
+    <div
+        bind:this={scrollElement}
+        use:melt={$root}
+        class="flex flex-col max-w-[218px] max-h-[100vh] overflow-y-hidden rounded-lg bg-neutral-900"
+    >
+        <div use:melt={$viewport} class="h-full w-full rounded-[inherit]">
+            <div use:melt={$collapsibleContent}>
+                <div class="p-4 px-[26px] mr-0" use:melt={$content}>
+                    <h3
+                        class="mb-4 text-text-500 font-metropolis font-bold text-base"
+                    >
+                        Players
+                    </h3>
+                    <Player color="#8a601e" nickname="Rick Ashely" />
+                    <Player color="#8a601e" nickname="Rick Ashely" />
+                    <Player color="#8a601e" nickname="Rick Ashely" />
+                    <Player color="#8a601e" nickname="Rick Ashely" />
+                    <Player color="#8a601e" nickname="Rick Ashely" />
+                    <Player color="#8a601e" nickname="Rick Ashely" />
+                    <Player color="#8a601e" nickname="Rick Ashely" />
+                    <Player color="#8a601e" nickname="Rick Ashely" />
+                    <Player color="#8a601e" nickname="Rick Ashely" />
+                    <Player color="#8a601e" nickname="Rick Ashely" />
+                    <Player color="#8a601e" nickname="Rick Ashely" />
+                    <Player color="#8a601e" nickname="Rick Ashely" />
+                    <Player color="#8a601e" nickname="Rick Ashely" />
+                    <Player color="#8a601e" nickname="Rick Ashely" />
+                    <Player color="#8a601e" nickname="Rick Ashely" />
+                    <Player color="#8a601e" nickname="Rick Ashely" />
                 </div>
             </div>
-            <div
-                use:melt={$scrollbarY}
-                class="flex h-full w-2.5 touch-none select-none border-l border-l-transparent bg-primary-800/10 p-px transition-colors"
-            >
-                <div
-                    use:melt={$thumbY}
-                    class="relative flex-1 rounded-full bg-primary-600"
-                />
-            </div>
-            <div
-                use:melt={$scrollbarX}
-                class="flex h-2.5 w-full touch-none select-none border-t border-t-transparent bg-primary-800/10 p-px"
-            >
-                <div
-                    use:melt={$thumbX}
-                    class="relative rounded-full bg-primary-600"
-                />
-            </div>
-            <div use:melt={$corner} />
         </div>
-    {/if}
+        <div
+            use:melt={$scrollbarY}
+            class="flex h-full w-2.5 touch-none select-none border-l border-l-transparent bg-primary-800/10 p-px transition-colors"
+        >
+            <div
+                use:melt={$thumbY}
+                class="relative flex-1 rounded-full bg-primary-600"
+            />
+        </div>
+        <div
+            use:melt={$scrollbarX}
+            class="flex h-2.5 w-full touch-none select-none border-t border-t-transparent bg-primary-800/10 p-px"
+        >
+            <div
+                use:melt={$thumbX}
+                class="relative rounded-full bg-primary-600"
+            />
+        </div>
+        <div use:melt={$corner} />
+    </div>
 </aside>
