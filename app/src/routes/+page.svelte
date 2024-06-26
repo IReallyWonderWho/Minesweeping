@@ -8,7 +8,7 @@
 <main class="h-[100vh] hero">
     <div class="hero-content flex-col">
         <h1
-            class="font-display m-8 h-10 text-5xl text-text-500 tracking-[-0.1em] z-10 drop"
+            class="font-display m-8 h-10 text-5xl text-primary-100 tracking-[-0.1em] z-10 drop"
         >
             Minesweeper
         </h1>
@@ -19,7 +19,7 @@
             width="3rem"
         />
 
-        <div class="card card-compact rounded-lg w-72 bg-primary-600">
+        <div class="card card-compact rounded-lg w-72 bg-primary-400">
             <form method="POST" class="card-body" use:enhance>
                 <input
                     name="roomId"

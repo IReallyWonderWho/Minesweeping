@@ -1,5 +1,10 @@
 <script lang="ts">
+    import { gsap } from "gsap/dist/gsap";
+
+    import { Flip } from "gsap/dist/Flip";
     import { tick } from "svelte";
+
+    gsap.registerPlugin(Flip);
 
     export let x: number;
     export let y: number;
@@ -7,44 +12,28 @@
     export let height: string = "32px";
     export let color: string = "#000000";
 
-    let element: SVGElement;
     let left: string;
     let top: string;
 
     async function flip(x: number, y: number) {
-        const first = element.getBoundingClientRect();
+        const cursor = Flip.getState(".flip");
 
         left = `${x - 16}px`;
         top = `${y - 32}px`;
 
         await tick();
 
-        const last = element.getBoundingClientRect();
-
-        const invert_left = first.left - last.left;
-        const invert_top = first.top - last.top;
-
-        element.animate(
-            [
-                { transform: `translate(${invert_left}px, ${invert_top}px)` },
-                { transform: `translate(0px, 0px)` },
-            ],
-            {
-                duration: 100,
-                easing: "ease-out",
-            },
-        );
+        Flip.from(cursor, {
+            duration: 0.1,
+        });
     }
 
     $: {
-        if (element) {
-            flip(x, y);
-        }
+        flip(x, y);
     }
 </script>
 
 <svg
-    bind:this={element}
     class="flip absolute pointer-events-none"
     {width}
     {height}

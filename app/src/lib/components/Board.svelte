@@ -103,7 +103,7 @@
 
 <div
     bind:this={element}
-    class={`w-[500px] h-[500px] bg-black grid grid-cols-12 grid-rows-12 justify-items-stretch ${$$props.class}`}
+    class={`h-[70vh] min-h-80 aspect-square bg-black grid grid-cols-12 grid-rows-12 justify-items-stretch ${$$props.class}`}
     on:mousemove
     role="main"
 >

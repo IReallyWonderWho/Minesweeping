@@ -1,7 +1,7 @@
 import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
-import multiplayer from "./dist/multiplayer";
+import multiplayer from "./dist/multiplayer.js";
 
 import { handler } from "./build/handler.js";
 

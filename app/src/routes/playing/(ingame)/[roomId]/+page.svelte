@@ -5,6 +5,8 @@
     import { connected, getSocket } from "$lib/webhook";
     import { onMount } from "svelte";
     import { addToast } from "$lib/components/Toaster.svelte";
+    import Player from "$lib/components/Player.svelte";
+    import PlayerList from "$lib/components/PlayerList.svelte";
 
     export let data: {
         board: Array<Array<number>> | undefined;
@@ -109,11 +111,5 @@
         </Board>
     {/if}
 
-    <div
-        class="ml-auto mr-3 max-w-[218px] max-h-[100vh] overflow-x-auto overflow-y-auto rounded-lg bg-[#0D181F] border-[2px] border-[#384754]"
-    >
-        <h3 class="mx-[26px] my-[9px] font-metropolis font-bold text-base">
-            Players
-        </h3>
-    </div>
+    <PlayerList />
 </main>
