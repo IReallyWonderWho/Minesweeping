@@ -3,7 +3,7 @@ import { roomExists, getPlayer } from "../rooms";
 import { isSessionValid } from "./verifySession";
 import type { Server } from "socket.io";
 
-type withSessionId = (
+export type withSessionId = (
   ...args: [
     ...BaseSocketHandler,
     io: Server,

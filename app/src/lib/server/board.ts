@@ -1,11 +1,10 @@
 import { getRandomInt } from "$lib/utility";
+import { TILE_TO_MINE_RATIO } from "$lib/sharedExpectations";
 
 export const FLAGGED_TILE = -3;
 export const UNKNOWN_TILE = -2;
 const MINE_TILE = -1;
 const ZERO_TILE = 0;
-// 1 mine per 6 tiles
-const TILE_TO_MINE_RATIO = 6;
 
 function deepCopy(object: Object) {
   const copy = JSON.stringify(object);
@@ -208,7 +207,7 @@ function massReveal(
 ) {
   let id = `${row},${column}`;
 
-  // Base case: if the tile has already been visited, return
+  // If the tile has already been visited return back
   if (visited_tiles.has(id)) return;
   if (client_board[row][column] !== UNKNOWN_TILE) return;
 
@@ -216,7 +215,7 @@ function massReveal(
   visited_tiles.set(id, server_board[row][column]);
   client_board[row][column] = server_board[row][column];
 
-  // If the current tile is not a zero tile, don't continue revealing
+  // If the tile isn't a zero tile, we don't have to continue
   if (server_board[row][column] !== ZERO_TILE) return;
 
   // Get all neighbors and reveal them

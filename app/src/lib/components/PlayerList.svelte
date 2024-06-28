@@ -1,9 +1,10 @@
 <script lang="ts">
     import { createScrollArea, createCollapsible, melt } from "@melt-ui/svelte";
-    import { fly } from "svelte/transition";
     import { gsap } from "gsap/dist/gsap";
     import { Flip } from "gsap/dist/Flip";
     import Player from "./Player.svelte";
+
+    export let players: Map<string, [number, number, string]>;
 
     gsap.registerPlugin(Flip);
 
@@ -101,22 +102,9 @@
                     >
                         Players
                     </h3>
-                    <Player color="#8a601e" nickname="Rick Ashely" />
-                    <Player color="#8a601e" nickname="Rick Ashely" />
-                    <Player color="#8a601e" nickname="Rick Ashely" />
-                    <Player color="#8a601e" nickname="Rick Ashely" />
-                    <Player color="#8a601e" nickname="Rick Ashely" />
-                    <Player color="#8a601e" nickname="Rick Ashely" />
-                    <Player color="#8a601e" nickname="Rick Ashely" />
-                    <Player color="#8a601e" nickname="Rick Ashely" />
-                    <Player color="#8a601e" nickname="Rick Ashely" />
-                    <Player color="#8a601e" nickname="Rick Ashely" />
-                    <Player color="#8a601e" nickname="Rick Ashely" />
-                    <Player color="#8a601e" nickname="Rick Ashely" />
-                    <Player color="#8a601e" nickname="Rick Ashely" />
-                    <Player color="#8a601e" nickname="Rick Ashely" />
-                    <Player color="#8a601e" nickname="Rick Ashely" />
-                    <Player color="#8a601e" nickname="Rick Ashely" />
+                    {#each players as [nickname, [_x, _y, color]] (nickname)}
+                        <Player {nickname} {color} />
+                    {/each}
                 </div>
             </div>
         </div>

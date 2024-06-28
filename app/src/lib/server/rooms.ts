@@ -64,8 +64,23 @@ export function getPlayer(roomId: string, session_token: string) {
   );
 }
 
+export function getAllPlayers(roomId: string) {
+  return redis.hGetAll<
+    Map<string, { nickname: string; color: string }> | undefined
+  >(`roomId/${roomId}/players`);
+}
+
 export async function playerExists(roomId: string, session_token: string) {
   return await redis.hExists(`roomId/${roomId}/players`, session_token);
+}
+
+export async function getTime(roomId: string) {
+  console.log(await redis.hGet(`roomId/${roomId}`, "time_started"));
+  return await redis.hGet<number>(`roomId/${roomId}`, "time_started");
+}
+
+export async function setTime(roomId: string, time: number) {
+  return await redis.hSet(`roomId/${roomId}`, "time_started", time);
 }
 
 export async function createRoom(custom_room_id?: string) {
@@ -104,6 +119,7 @@ export async function createBoardForRoom(
 
   setStart(roomId, true);
   setBoards(roomId, client_board, server_board);
+  setTime(roomId, Date.now());
 
   return {
     client_board,

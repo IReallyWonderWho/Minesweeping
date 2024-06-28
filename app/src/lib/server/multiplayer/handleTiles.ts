@@ -1,4 +1,3 @@
-import type { withIOHandler } from "./joinRoom";
 import {
   createBoardForRoom,
   getBoards,
@@ -8,12 +7,19 @@ import {
   setRevealedTiles,
   roomExists,
   getStarted,
+  getPlayer,
 } from "../rooms";
 import { returnTile, didGameEnd, UNKNOWN_TILE, FLAGGED_TILE } from "../board";
+import type { withSessionId } from "./mouseMoves";
+import { isSessionValid } from "./verifySession";
+import { NUMBER_OF_ROWS_COLUMNS } from "$lib/sharedExpectations";
 
-const NUMBER_OF_ROWS_COLUMNS = 12;
-
-export const handleTiles: withIOHandler = (socket, consumeRateLimit, io) => {
+export const handleTiles: withSessionId = (
+  socket,
+  consumeRateLimit,
+  io,
+  getSessionId,
+) => {
   socket.on("choose_tile", async (x: unknown, y: unknown) => {
     if (!(await consumeRateLimit(socket.handshake.headers.cookie, 1))) return;
 
@@ -29,6 +35,21 @@ export const handleTiles: withIOHandler = (socket, consumeRateLimit, io) => {
 
     if (!room) {
       socket.emit("error", "Room not found");
+      return;
+    }
+
+    const session_id = getSessionId(socket.handshake.headers.cookie);
+    const session_valid = await isSessionValid(session_id, roomId);
+
+    if (!session_valid) {
+      socket.emit("error", "Session ID");
+      return;
+    }
+
+    const player = await getPlayer(roomId, session_id!);
+
+    if (!player) {
+      socket.emit("error", "Player not found");
       return;
     }
 
@@ -58,7 +79,7 @@ export const handleTiles: withIOHandler = (socket, consumeRateLimit, io) => {
 
       return io
         .to(`roomId/${roomId}`)
-        .emit("game_ended", by_mine, "Rick Ashley");
+        .emit("game_ended", by_mine, player?.nickname);
     }
 
     setBoards(roomId, client_board, server_board);

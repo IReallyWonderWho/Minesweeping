@@ -549,12 +549,15 @@ function getRandomInt(min, max) {
   return Math.floor(Math.random() * (maxFloored - minCeiled) + minCeiled);
 }
 
+// src/lib/sharedExpectations.ts
+var TILE_TO_MINE_RATIO = 6;
+var NUMBER_OF_ROWS_COLUMNS = 12;
+
 // src/lib/server/board.ts
 var FLAGGED_TILE = -3;
 var UNKNOWN_TILE = -2;
 var MINE_TILE = -1;
 var ZERO_TILE = 0;
-var TILE_TO_MINE_RATIO = 6;
 function deepCopy(object) {
   const copy = JSON.stringify(object);
   return JSON.parse(copy);
@@ -845,6 +848,9 @@ function getPlayer(roomId, session_token) {
 async function playerExists(roomId, session_token) {
   return await redis_default.hExists(`roomId/${roomId}/players`, session_token);
 }
+async function setTime(roomId, time) {
+  return await redis_default.hSet(`roomId/${roomId}`, "time_started", time);
+}
 async function createRoom(custom_room_id) {
   const roomId = custom_room_id ?? uuidv4();
   await Promise.allSettled([
@@ -866,6 +872,7 @@ async function createBoardForRoom(roomId, number_of_rows_columns, safe_row, safe
   );
   setStart(roomId, true);
   setBoards(roomId, client_board, server_board);
+  setTime(roomId, Date.now());
   return {
     client_board,
     server_board
@@ -909,8 +916,7 @@ var joinRoom = (socket, consumeRateLimit2) => {
 };
 
 // src/lib/server/multiplayer/handleTiles.ts
-var NUMBER_OF_ROWS_COLUMNS = 12;
-var handleTiles = (socket, consumeRateLimit2, io) => {
+var handleTiles = (socket, consumeRateLimit2, io, getSessionId2) => {
   socket.on("choose_tile", async (x, y) => {
     if (!await consumeRateLimit2(socket.handshake.headers.cookie, 1)) return;
     const roomId = socket.handshake.auth.roomId;
@@ -919,6 +925,17 @@ var handleTiles = (socket, consumeRateLimit2, io) => {
     const room = await getRoom(roomId);
     if (!room) {
       socket.emit("error", "Room not found");
+      return;
+    }
+    const session_id = getSessionId2(socket.handshake.headers.cookie);
+    const session_valid = await isSessionValid(session_id, roomId);
+    if (!session_valid) {
+      socket.emit("error", "Session ID");
+      return;
+    }
+    const player = await getPlayer(roomId, session_id);
+    if (!player) {
+      socket.emit("error", "Player not found");
       return;
     }
     const { server_board, client_board } = await getBoards(roomId) ?? await createBoardForRoom(roomId, NUMBER_OF_ROWS_COLUMNS, x, y);
@@ -934,7 +951,7 @@ var handleTiles = (socket, consumeRateLimit2, io) => {
     const revealed_tiles = number_of_revealed_tiles + increment_by;
     if ("x" in returned_tile && returned_tile["state"] === -1 || didGameEnd(client_board, revealed_tiles)) {
       const by_mine = "x" in returned_tile && returned_tile["state"] === -1;
-      return io.to(`roomId/${roomId}`).emit("game_ended", by_mine, "Rick Ashley");
+      return io.to(`roomId/${roomId}`).emit("game_ended", by_mine, player?.nickname);
     }
     setBoards(roomId, client_board, server_board);
     setRevealedTiles(roomId, revealed_tiles);
@@ -1047,7 +1064,7 @@ function multiplayer(io) {
   });
   io.on("connection", (socket) => {
     joinRoom(socket, consumeRateLimit);
-    handleTiles(socket, consumeRateLimit, io);
+    handleTiles(socket, consumeRateLimit, io, getSessionId);
     mouseMoves(socket, consumeRateLimit, io, getSessionId);
   });
 }

@@ -1,6 +1,7 @@
 <script lang="ts">
+    // @ts-ignore
     import { gsap } from "gsap/dist/gsap";
-
+    // @ts-ignore
     import { Flip } from "gsap/dist/Flip";
     import { tick } from "svelte";
 

@@ -1,19 +1,7 @@
 import type { Server } from "socket.io";
 // @ts-ignore
 import RateLimiterMemory from "rate-limiter-flexible/lib/RateLimiterMemory.js";
-import { UNKNOWN_TILE, FLAGGED_TILE, returnTile, didGameEnd } from "../board";
-import {
-  createRoom,
-  getRoom,
-  createBoardForRoom,
-  getBoards,
-  getRevealedTiles,
-  setRevealedTiles,
-  setBoards,
-  getStarted,
-  roomExists,
-  getPlayer,
-} from "../rooms";
+import { createRoom } from "../rooms";
 import { parse } from "cookie";
 import { isSessionValid } from "./verifySession";
 import { joinRoom } from "./joinRoom";
@@ -78,7 +66,7 @@ export default function multiplayer(io: Server) {
 
   io.on("connection", (socket) => {
     joinRoom(socket, consumeRateLimit);
-    handleTiles(socket, consumeRateLimit, io);
+    handleTiles(socket, consumeRateLimit, io, getSessionId);
     mouseMoves(socket, consumeRateLimit, io, getSessionId);
   });
 }

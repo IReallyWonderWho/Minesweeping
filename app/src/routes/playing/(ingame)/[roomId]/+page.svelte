@@ -5,16 +5,19 @@
     import { connected, getSocket } from "$lib/webhook";
     import { onMount } from "svelte";
     import { addToast } from "$lib/components/Toaster.svelte";
-    import Player from "$lib/components/Player.svelte";
     import PlayerList from "$lib/components/PlayerList.svelte";
+    import BoardStats from "$lib/components/BoardStats.svelte";
 
     export let data: {
         board: Array<Array<number>> | undefined;
+        players: Array<{ nickname: string; color: string }>;
+        time: number | undefined;
     };
 
     const roomId = $page.params["roomId"];
     const socket = roomId ? getSocket(roomId) : undefined;
 
+    // TODO, move mouse logic to cursor when possible
     // If the mouse distance moved is under 10 pixels, it's not worth sending
     // an update to the server
     const CHANGE_THRESHOLD = 10;
@@ -29,6 +32,10 @@
 
     // Nickname: [x, y, hsl color]
     let player_positions: Map<string, [number, number, string]> = new Map();
+
+    function windowResized() {
+        domrect = element.getBoundingClientRect();
+    }
 
     function clamp(num: number, min: number, max: number) {
         return Math.min(Math.max(num, min), max);
@@ -58,10 +65,6 @@
         }
     }
 
-    function windowResized() {
-        domrect = element.getBoundingClientRect();
-    }
-
     onMount(() => {
         if (roomId && !connected) {
             socket?.emit("join_room", roomId);
@@ -84,6 +87,11 @@
 
         domrect = element.getBoundingClientRect();
 
+        for (const { nickname, color } of data["players"]) {
+            player_positions.set(nickname, [0, 0, color]);
+            player_positions = player_positions;
+        }
+
         return () => {
             socket?.disconnect();
         };
@@ -96,6 +104,7 @@
     class="h-[100vh] grid grid-cols-3 items-center justify-items-center overflow-hidden"
 >
     {#if roomId && socket}
+        <BoardStats time_started={data.time} />
         <Board
             bind:element
             class="col-start-2 relative"
@@ -111,5 +120,5 @@
         </Board>
     {/if}
 
-    <PlayerList />
+    <PlayerList players={player_positions} />
 </main>

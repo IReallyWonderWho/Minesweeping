@@ -20,7 +20,7 @@
     import { fly } from "svelte/transition";
 </script>
 
-<div class="toast" use:portal>
+<div class="toast items-end" use:portal>
     {#each $toasts as { id, data } (id)}
         <div use:melt={$content(id)}>
             <div
