@@ -12,6 +12,7 @@ pub mod board {
 
     const TILE_TO_MINE_RATIO: f64 = 6.0;
 
+    #[derive(Debug, Serialize, Deserialize)]
     pub struct Tile {
         pub x: usize,
         pub y: usize,
@@ -24,6 +25,7 @@ pub mod board {
         pub server_board: Vec<Vec<i32>>,
     }
 
+    #[derive(Debug, Serialize, Deserialize)]
     pub enum TileOrHashmap {
         Tile(Tile),
         Hashmap(HashMap<String, i32>),

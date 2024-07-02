@@ -1,8 +1,5 @@
-use std::future::Future;
-
-use http::HeaderValue;
+use serde_json::json;
 use socketioxide::extract::{Data, SocketRef, State};
-use tracing::info;
 
 use crate::{
     board::board::{return_tile, Boards, TileOrHashmap},
@@ -14,7 +11,7 @@ use crate::{
     },
 };
 
-use super::{get_session_id, is_session_valid};
+use super::get_session_id;
 
 pub fn handle_tiles(socket: &SocketRef, auth: Auth) {
     socket.on(
@@ -48,7 +45,6 @@ pub fn handle_tiles(socket: &SocketRef, auth: Auth) {
             let session_id = session_id_option.unwrap();
             let player = get_player(&client, &room_id, session_id.value()).await;
 
-            info!("{:?}", player);
             if player.is_err() {
                 socket.emit("error", "Player not found").ok();
                 return;
@@ -65,22 +61,26 @@ pub fn handle_tiles(socket: &SocketRef, auth: Auth) {
             let Boards { server_board, mut client_board } = boards.unwrap();
 
             let returned_tile = return_tile(&server_board, &mut client_board, x, y);
-            let increment_by = if let TileOrHashmap::Hashmap(map) = returned_tile {
-                map.len()
-            } else {
-                1
+
+            let increment_by = match &returned_tile {
+                TileOrHashmap::Hashmap(map) => {
+                    map.len()
+                }
+                TileOrHashmap::Tile(_) => {
+                    1
+                }
             };
 
             // TODO add game over
 
-            set_boards(&client, &room_id, &Boards {
+            let new_boards = Boards {
                 client_board,
-                server_board,
-            }).await;
-            set_revealed_tiles(&client, &room_id, number_of_tiles + increment_by).await;
+                server_board
+            };
 
-            // "x" in returned_tile ? returned_tile : Object.fromEntries(returned_tile),
-            socket.broadcast().emit("board_updated", )
+            tokio::join!(set_boards(&client, &room_id, &new_boards), set_revealed_tiles(&client, &room_id, number_of_tiles + increment_by));
+
+            socket.within(format!("roomId/{}", room_id)).emit("board_updated", json!(returned_tile)).ok();
         },
     )
 }

@@ -47,6 +47,7 @@ export function getStarted(roomId: string) {
 export async function addPlayer(roomId: string, player_name: string) {
   const session_token = uuidv4();
 
+  console.log(session_token);
   const color = getRandomHSL();
 
   await redis.hSet(`roomId/${roomId}/players`, session_token, {

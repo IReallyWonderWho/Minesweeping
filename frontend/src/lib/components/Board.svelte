@@ -50,14 +50,14 @@
             "board_updated",
             (
                 tile:
-                    | { x: number; y: number; state: number }
-                    | Map<string, number>,
+                    | { Tile: { x: number; y: number; state: number } }
+                    | { Hashmap: Map<string, number> },
             ) => {
-                console.log(board);
                 // This is {x, y, tile state}
-                if ("x" in tile) {
+                console.log(tile);
+                if ("Tile" in tile) {
                     console.log(tile);
-                    const { x, y, state } = tile as {
+                    const { x, y, state } = tile.Tile as {
                         x: number;
                         y: number;
                         state: number;
@@ -69,14 +69,14 @@
                 } else {
                     // The ids are just "x,y" and the tile state
                     for (const [id, state] of new Map<string, number>(
-                        Object.entries(tile),
+                        Object.entries(tile.Hashmap),
                     )) {
                         const [_x, _y] = id.split(",");
                         const [x, y] = [Number(_x), Number(_y)];
 
                         if (!board) return;
 
-                        console.log("bruh");
+                        console.log(`x: ${x}, y: ${y}`);
                         board[x][y] = state;
                     }
                 }
