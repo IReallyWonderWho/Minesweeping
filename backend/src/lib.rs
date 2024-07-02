@@ -3,19 +3,12 @@ mod handlers;
 mod redis_client;
 mod rooms;
 
-use board::board::{compute_board, flood_reveal};
-use redis::Commands;
-use redis_client::RedisClient;
-use redis_macros::FromRedisValue;
-use rooms::get_boards;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use tracing::info;
-use tracing_subscriber::FmtSubscriber;
-
 #[cfg(test)]
 mod tests {
-    use redis::RedisError;
+    use board::board::{compute_board, flood_reveal};
+    use redis_macros::FromRedisValue;
+    use serde::{Deserialize, Serialize};
+    use std::collections::HashMap;
 
     use super::*;
 
@@ -125,18 +118,5 @@ mod tests {
 
         assert_eq!(result, computed_visited);
         assert_eq!(client_board, test_client);
-    }
-
-    #[tokio::test]
-    async fn what_does_redis_do() {
-        let client = RedisClient::new();
-
-        let a: Result<Room, RedisError> = client.get(&String::from("Banana")).await;
-
-        println!("HI {:?}", a);
-
-        let b: u32 = client.hget("roomId/Wow", "time_started").await.unwrap();
-
-        println!("BYE {:?}", b);
     }
 }

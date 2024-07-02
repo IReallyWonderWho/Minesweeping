@@ -2,12 +2,8 @@ use cookie::Cookie;
 use http::HeaderValue;
 use serde::Deserialize;
 use socketioxide::extract::{Data, SocketRef, State};
-use std::error::Error;
 
-use crate::{
-    redis_client::RedisClient,
-    rooms::{player_exists, room_exists, sync_player_exists},
-};
+use crate::{redis_client::RedisClient, rooms::sync_player_exists};
 
 pub mod handle_tiles;
 pub mod join_room;
@@ -45,24 +41,6 @@ pub fn get_session_id(cookies: Option<&HeaderValue>) -> Option<Cookie> {
     }
 
     Some(cookie_result.unwrap())
-}
-
-pub async fn is_session_valid<'a>(
-    client: &RedisClient,
-    session_id: &Option<Cookie<'a>>,
-    room_id: &str,
-) -> bool {
-    if let Some(session_id) = session_id {
-        let room_exists = room_exists(client, room_id).await;
-
-        if !room_exists {
-            return false;
-        }
-
-        return player_exists(client, room_id, session_id.value()).await;
-    }
-
-    false
 }
 
 pub fn authenticate_middleware(

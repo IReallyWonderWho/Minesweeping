@@ -25,14 +25,6 @@ pub struct Player {
     pub color: String,
 }
 
-fn get_random_hsl() -> String {
-    let h = rand::thread_rng().gen_range(1..360);
-    let s = rand::thread_rng().gen_range(30..100);
-    let l = rand::thread_rng().gen_range(30..60);
-
-    format!("hsl({},{},{})", h, s, l)
-}
-
 fn generate_random_string(length: usize) -> String {
     const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     let mut rng = rand::thread_rng();
@@ -111,28 +103,6 @@ pub async fn get_revealed_tiles(client: &RedisClient, room_id: &str) -> Result<u
         .await
 }
 
-pub async fn add_player(client: RedisClient, room_id: String, nickname: String) -> Uuid {
-    let session_id = Uuid::new_v4();
-
-    let color = get_random_hsl();
-
-    let mut player = HashMap::new();
-
-    player.insert("nickname", nickname);
-    player.insert("color", color);
-
-    client
-        .hset(
-            &format!("roomId/{}/players", room_id),
-            &session_id.to_string(),
-            player,
-        )
-        .await
-        .unwrap();
-
-    session_id
-}
-
 pub async fn get_player(
     client: &RedisClient,
     room_id: &str,
@@ -143,30 +113,10 @@ pub async fn get_player(
         .await
 }
 
-pub async fn get_all_players(
-    client: &RedisClient,
-    room_id: &str,
-) -> Result<HashMap<String, HashMap<String, String>>, RedisError> {
-    client.hgetall(room_id).await
-}
-
-pub async fn player_exists(client: &RedisClient, room_id: &str, session_id: &str) -> bool {
-    client
-        .hexists(&format!("roomId/{}/players", room_id), session_id)
-        .await
-        .unwrap()
-}
-
 pub fn sync_player_exists(client: &RedisClient, room_id: &str, session_id: &str) -> bool {
     client
         .sync_hexists(&format!("roomId/{}/players", room_id), session_id)
         .unwrap()
-}
-
-pub async fn get_time(client: &RedisClient, room_id: &str) -> Result<u64, RedisError> {
-    client
-        .hget(&format!("roomId/{}", room_id), "time_started")
-        .await
 }
 
 pub async fn set_time(client: &RedisClient, room_id: &str, time: DateTime<Utc>) {
@@ -178,10 +128,6 @@ pub async fn set_time(client: &RedisClient, room_id: &str, time: DateTime<Utc>) 
         )
         .await
         .unwrap();
-}
-
-pub async fn get_room(client: &RedisClient, room_id: &str) -> Result<Room, RedisError> {
-    client.hgetall(&format!("roomId/{}", room_id)).await
 }
 
 pub async fn room_exists(client: &RedisClient, room_id: &str) -> bool {

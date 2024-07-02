@@ -1,14 +1,13 @@
 use serde_json::json;
 use socketioxide::extract::{Data, SocketRef, State};
-use tracing::info;
 
 use crate::{
     board::board::{return_tile, Boards, Tile, TileOrHashmap, FLAGGED_TILE, UNKNOWN_TILE},
     handlers::{get_session_id, Auth},
     redis_client::RedisClient,
     rooms::{
-        create_board_for_room, get_boards, get_player, get_revealed_tiles, get_room, room_exists,
-        set_boards, set_revealed_tiles,
+        create_board_for_room, get_boards, get_player, get_revealed_tiles, set_boards,
+        set_revealed_tiles,
     },
 };
 

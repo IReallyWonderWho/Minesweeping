@@ -1,6 +1,6 @@
-use handlers::{authenticate_middleware, handle_tiles::handle_tiles, join_room::join_room};
+use handlers::authenticate_middleware;
 use rooms::create_room;
-use socketioxide::{extract::SocketRef, handler::ConnectHandler, SocketIo};
+use socketioxide::{handler::ConnectHandler, SocketIo};
 use tower::ServiceBuilder;
 use tower_cookies::CookieManagerLayer;
 use tower_http::cors::CorsLayer;
@@ -12,6 +12,7 @@ mod handlers;
 mod redis_client;
 mod rooms;
 
+use handlers::on_connect;
 use redis_client::RedisClient;
 
 #[tokio::main]
@@ -24,7 +25,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let (layer, io) = SocketIo::builder().with_state(client).build_layer();
 
-    io.ns("/", handlers::on_connect.with(authenticate_middleware));
+    io.ns("/", on_connect.with(authenticate_middleware));
 
     let app = axum::Router::new().layer(CookieManagerLayer::new()).layer(
         ServiceBuilder::new()
