@@ -11,6 +11,7 @@ use crate::{
 
 pub mod handle_tiles;
 pub mod join_room;
+pub mod mouse_moves;
 
 #[derive(Debug, Deserialize)]
 pub struct Auth {
@@ -18,9 +19,18 @@ pub struct Auth {
     pub room_id: Option<String>,
 }
 
+impl Clone for Auth {
+    fn clone(&self) -> Self {
+        Self {
+            room_id: self.room_id.clone(),
+        }
+    }
+}
+
 pub fn on_connect(socket: SocketRef, Data(auth): Data<Auth>) {
     join_room::join_room(&socket);
-    handle_tiles::handle_tiles(&socket, auth);
+    handle_tiles::handle_tiles(&socket, &auth);
+    mouse_moves::mouse_moves(&socket, auth);
 }
 
 pub fn get_session_id(cookies: Option<&HeaderValue>) -> Option<Cookie> {

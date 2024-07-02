@@ -542,6 +542,131 @@ var import_RateLimiterMemory = __toESM(require_RateLimiterMemory(), 1);
 // src/lib/server/rooms.ts
 import { v4 as uuidv4 } from "uuid";
 
+// src/lib/utility.ts
+function getRandomInt(min, max) {
+  const minCeiled = Math.ceil(min);
+  const maxFloored = Math.floor(max);
+  return Math.floor(Math.random() * (maxFloored - minCeiled) + minCeiled);
+}
+
+// src/lib/sharedExpectations.ts
+var TILE_TO_MINE_RATIO = 6;
+var NUMBER_OF_ROWS_COLUMNS = 12;
+
+// src/lib/server/board.ts
+var FLAGGED_TILE = -3;
+var UNKNOWN_TILE = -2;
+var MINE_TILE = -1;
+var ZERO_TILE = 0;
+function deepCopy(object) {
+  const copy = JSON.stringify(object);
+  return JSON.parse(copy);
+}
+function isNeighbor(row, column, other_row, other_column) {
+  if (Math.abs(row - other_row) <= 1 && Math.abs(column - other_column) <= 1) {
+    return true;
+  }
+  return false;
+}
+function getNeighbors(board, row, column) {
+  const neighbors = [];
+  for (let x = -1; x < 2; x++) {
+    for (let y = -1; y < 2; y++) {
+      if (x === 0 && y === 0) continue;
+      const _row = board[row + x];
+      if (_row === void 0) continue;
+      const _column = _row[column + y];
+      if (_column === void 0) continue;
+      neighbors.push([_column, row + x, column + y]);
+    }
+  }
+  return neighbors;
+}
+function computeBoard(board, number_of_rows_columns) {
+  for (let x = 0; x < number_of_rows_columns; x++) {
+    for (let y = 0; y < number_of_rows_columns; y++) {
+      const tile = board[x][y];
+      if (tile === MINE_TILE) continue;
+      let surrounding_bombs = 0;
+      for (const [neighbor] of getNeighbors(board, x, y)) {
+        if (neighbor === MINE_TILE) {
+          surrounding_bombs++;
+        }
+      }
+      board[x][y] = surrounding_bombs;
+    }
+  }
+}
+function generateSolvedBoard(number_of_rows_columns, safe_row, safe_column) {
+  const server_board = [];
+  const number_of_tiles = number_of_rows_columns ** 2;
+  let number_of_mines = Math.floor(number_of_tiles / TILE_TO_MINE_RATIO);
+  for (let x = 0; x < number_of_rows_columns; x++) {
+    const row = [];
+    for (let y = 0; y < number_of_rows_columns; y++) {
+      row.push(UNKNOWN_TILE);
+    }
+    server_board.push(row);
+  }
+  const client_board = deepCopy(server_board);
+  while (number_of_mines > 0) {
+    const random_row = getRandomInt(0, number_of_rows_columns);
+    const random_column = getRandomInt(0, number_of_rows_columns);
+    if (server_board[random_row][random_column] === UNKNOWN_TILE && !(random_row === safe_row && random_column === safe_column) && !isNeighbor(safe_row, safe_column, random_row, random_column)) {
+      server_board[random_row][random_column] = MINE_TILE;
+      number_of_mines--;
+    }
+  }
+  console.log(server_board);
+  computeBoard(server_board, number_of_rows_columns);
+  console.log(server_board);
+  return [server_board, client_board];
+}
+function returnTile(player, server_board, client_board, row, column) {
+  const client_tile = client_board[row][column];
+  const server_tile = server_board[row][column];
+  if (client_tile !== UNKNOWN_TILE) {
+    return {
+      x: row,
+      y: column,
+      state: client_tile
+    };
+  }
+  switch (server_tile) {
+    case ZERO_TILE: {
+      const visited_tiles = /* @__PURE__ */ new Map();
+      massReveal(server_board, client_board, row, column, visited_tiles);
+      console.log(visited_tiles);
+      return visited_tiles;
+    }
+  }
+  client_board[row][column] = server_tile;
+  return {
+    x: row,
+    y: column,
+    state: server_tile
+  };
+}
+function didGameEnd(board, number_of_revealed_tiles) {
+  const number_of_tiles = board.length ** 2;
+  const number_of_mines = Math.floor(number_of_tiles / TILE_TO_MINE_RATIO);
+  const number_of_remaining_tiles = number_of_tiles - number_of_mines;
+  return number_of_remaining_tiles === number_of_revealed_tiles;
+}
+function massReveal(server_board, client_board, row, column, visited_tiles) {
+  let id = `${row},${column}`;
+  if (visited_tiles.has(id)) return;
+  if (client_board[row][column] !== UNKNOWN_TILE) return;
+  visited_tiles.set(id, server_board[row][column]);
+  client_board[row][column] = server_board[row][column];
+  if (server_board[row][column] !== ZERO_TILE) return;
+  for (const [_neighbor, x, y] of getNeighbors(server_board, row, column)) {
+    if (!visited_tiles.has(`${x},${y}`)) {
+      massReveal(server_board, client_board, x, y, visited_tiles);
+    }
+  }
+}
+
 // src/lib/redis.ts
 import { createClient } from "redis";
 var redisHost = process.env.REDIS_HOST || "localhost";
@@ -692,6 +817,15 @@ var redis = {
 var redis_default = redis;
 
 // src/lib/server/rooms.ts
+function setBoards(roomId, client_board, server_board) {
+  redis_default.hSet(`roomId/${roomId}`, "boards", {
+    server_board,
+    client_board
+  });
+}
+function getBoards(roomId) {
+  return redis_default.hGet(`roomId/${roomId}`, "boards");
+}
 function setRevealedTiles(roomId, number_of_revealed_tiles) {
   redis_default.hSet(
     `roomId/${roomId}`,
@@ -699,8 +833,26 @@ function setRevealedTiles(roomId, number_of_revealed_tiles) {
     number_of_revealed_tiles
   );
 }
+function getRevealedTiles(roomId) {
+  return redis_default.hGet(`roomId/${roomId}`, "number_of_revealed_tiles");
+}
 function setStart(roomId, started) {
   redis_default.hSet(`roomId/${roomId}`, "started", started);
+}
+function getStarted(roomId) {
+  return redis_default.hGet(`roomId/${roomId}`, "started");
+}
+function getPlayer(roomId, session_token) {
+  return redis_default.hGet(
+    `roomId/${roomId}/players`,
+    session_token
+  );
+}
+async function playerExists(roomId, session_token) {
+  return await redis_default.hExists(`roomId/${roomId}/players`, session_token);
+}
+async function setTime(roomId, time) {
+  return await redis_default.hSet(`roomId/${roomId}`, "time_started", time);
 }
 async function createRoom(custom_room_id) {
   const roomId = custom_room_id ?? uuidv4();
@@ -712,14 +864,217 @@ async function createRoom(custom_room_id) {
   setStart(roomId, false);
   return { roomId };
 }
+async function createBoardForRoom(roomId, number_of_rows_columns, safe_row, safe_column) {
+  const room = await getRoom(roomId);
+  if (!room) throw "Room not found";
+  console.log("generating boards!");
+  const [server_board, client_board] = generateSolvedBoard(
+    number_of_rows_columns,
+    safe_row,
+    safe_column
+  );
+  setStart(roomId, true);
+  setBoards(roomId, client_board, server_board);
+  setTime(roomId, Date.now());
+  return {
+    client_board,
+    server_board
+  };
+}
+function getRoom(roomId) {
+  return redis_default.hGetAll(`roomId/${roomId}`);
+}
+async function roomExists(roomId) {
+  return await redis_default.exists(`roomId/${roomId}`);
+}
 
 // src/lib/server/multiplayer/index.ts
 var import_cookie = __toESM(require_cookie(), 1);
+
+// src/lib/server/multiplayer/verifySession.ts
+async function isSessionReal(roomId, session_id) {
+  if (!await roomExists(roomId)) return false;
+  return playerExists(roomId, session_id);
+}
+async function isSessionValid(session_id, roomId) {
+  if (session_id !== void 0 && typeof roomId === "string" && await isSessionReal(roomId, session_id)) {
+    return true;
+  }
+  return false;
+}
+
+// src/lib/server/multiplayer/joinRoom.ts
+var joinRoom = (socket, consumeRateLimit2) => {
+  socket.on("join_room", async (roomId) => {
+    if (!await consumeRateLimit2(socket.handshake.headers.cookie, 5)) return;
+    if (typeof roomId !== "string") return;
+    const room = await getRoom(roomId);
+    if (room) {
+      await socket.join(`roomId/${roomId}`);
+      socket.emit("joined_room", roomId);
+      return;
+    }
+    socket.emit("error", "Room not found");
+  });
+};
+
+// src/lib/server/multiplayer/handleTiles.ts
+var handleTiles = (socket, consumeRateLimit2, io, getSessionId2) => {
+  socket.on("choose_tile", async (x, y) => {
+    if (!await consumeRateLimit2(socket.handshake.headers.cookie, 1)) return;
+    const roomId = socket.handshake.auth.roomId;
+    if (typeof x !== "number" || typeof y !== "number" || typeof roomId !== "string")
+      return;
+    const room = await getRoom(roomId);
+    if (!room) {
+      socket.emit("error", "Room not found");
+      return;
+    }
+    const session_id = getSessionId2(socket.handshake.headers.cookie);
+    const session_valid = await isSessionValid(session_id, roomId);
+    if (!session_valid) {
+      socket.emit("error", "Session ID");
+      return;
+    }
+    const player = await getPlayer(roomId, session_id);
+    if (!player) {
+      socket.emit("error", "Player not found");
+      return;
+    }
+    const { server_board, client_board } = await getBoards(roomId) ?? await createBoardForRoom(roomId, NUMBER_OF_ROWS_COLUMNS, x, y);
+    const number_of_revealed_tiles = await getRevealedTiles(roomId) ?? 0;
+    const returned_tile = returnTile(
+      "Rick Ashley",
+      server_board,
+      client_board,
+      x,
+      y
+    );
+    const increment_by = "x" in returned_tile ? 1 : returned_tile.size;
+    const revealed_tiles = number_of_revealed_tiles + increment_by;
+    if ("x" in returned_tile && returned_tile["state"] === -1 || didGameEnd(client_board, revealed_tiles)) {
+      const by_mine = "x" in returned_tile && returned_tile["state"] === -1;
+      return io.to(`roomId/${roomId}`).emit("game_ended", by_mine, player?.nickname);
+    }
+    setBoards(roomId, client_board, server_board);
+    setRevealedTiles(roomId, revealed_tiles);
+    io.to(`roomId/${roomId}`).emit(
+      "board_updated",
+      "x" in returned_tile ? returned_tile : Object.fromEntries(returned_tile)
+    );
+  });
+  socket.on("flag_tile", async (x, y) => {
+    if (!await consumeRateLimit2(socket.handshake.headers.cookie, 1)) return;
+    const roomId = socket.handshake.auth.roomId;
+    if (typeof x !== "number" || typeof y !== "number" || typeof roomId !== "string")
+      return;
+    const room = await roomExists(roomId);
+    if (!room) {
+      socket.emit("error", "Room not found");
+      return;
+    }
+    const started = await getStarted(roomId);
+    if (!started) {
+      socket.emit("error", "Room boards haven't been initalized yet");
+      return;
+    }
+    const { server_board, client_board } = await getBoards(roomId);
+    const tile = client_board[x][y];
+    if (tile !== UNKNOWN_TILE && tile !== FLAGGED_TILE) {
+      socket.emit("error", "Tile cannot be flagged");
+      return;
+    }
+    const is_flagged = tile === UNKNOWN_TILE;
+    const new_tile = is_flagged ? FLAGGED_TILE : UNKNOWN_TILE;
+    client_board[x][y] = new_tile;
+    setBoards(roomId, client_board, server_board);
+    io.to(`roomId/${roomId}`).emit("board_updated", {
+      x,
+      y,
+      state: new_tile
+    });
+  });
+};
+
+// src/lib/server/multiplayer/mouseMoves.ts
+var mouseMoves = (socket, consumeRateLimit2, io, getSessionId2) => {
+  socket.on("mouse_move", async (x, y) => {
+    if (!await consumeRateLimit2(socket.handshake.headers.cookie ?? "", 1))
+      return;
+    const roomId = socket.handshake.auth.roomId;
+    if (typeof x !== "number" || typeof y !== "number" || typeof roomId !== "string")
+      return;
+    const room_exists = await roomExists(roomId);
+    if (!room_exists) {
+      socket.emit("error", "Room not found");
+      return;
+    }
+    const session_id = getSessionId2(socket.handshake.headers.cookie);
+    const session_valid = await isSessionValid(session_id, roomId);
+    if (!session_valid) {
+      socket.emit("error", "Session ID");
+      return;
+    }
+    const player = await getPlayer(roomId, session_id);
+    if (!player) {
+      socket.emit("error", "Player not found");
+      return;
+    }
+    const { nickname, color } = player;
+    io.to(`roomId/${roomId}`).emit("update_player_mouse", {
+      nickname,
+      color,
+      x,
+      y
+    });
+  });
+};
+
+// src/lib/server/multiplayer/index.ts
 var rateLimiter = new import_RateLimiterMemory.default({
   points: 25,
   duration: 1
 });
 createRoom("Never going to give your ip");
+function getSessionId(cookie_header) {
+  const cookies = (0, import_cookie.parse)(cookie_header ?? "");
+  return cookies["SESSION_ID"];
+}
+async function consumeRateLimit(cookie_header, points) {
+  try {
+    const session_id = getSessionId(cookie_header);
+    if (!session_id) return false;
+    await rateLimiter.consume(session_id, points);
+    return true;
+  } catch (error) {
+    console.warn(error);
+    return false;
+  }
+}
+function multiplayer(io) {
+  console.log("WHAT THE SIGMA");
+  io.use(async (socket, next) => {
+    const session_id = getSessionId(socket.handshake.headers.cookie);
+    const roomId = socket.handshake.auth.roomId;
+    if (await isSessionValid(session_id, roomId)) {
+      next();
+    } else {
+      next(
+        new Error(
+          "Session Id is invalid. Please try rejoining the game through the menu."
+        )
+      );
+    }
+  });
+  io.on("connection", (socket) => {
+    joinRoom(socket, consumeRateLimit);
+    handleTiles(socket, consumeRateLimit, io, getSessionId);
+    mouseMoves(socket, consumeRateLimit, io, getSessionId);
+  });
+}
+export {
+  multiplayer as default
+};
 /*! Bundled license information:
 
 cookie/index.js:

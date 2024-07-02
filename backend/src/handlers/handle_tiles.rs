@@ -1,9 +1,10 @@
 use serde_json::json;
 use socketioxide::extract::{Data, SocketRef, State};
+use tracing::info;
 
 use crate::{
-    board::board::{return_tile, Boards, TileOrHashmap},
-    handlers::Auth,
+    board::board::{return_tile, Boards, Tile, TileOrHashmap, FLAGGED_TILE, UNKNOWN_TILE},
+    handlers::{get_session_id, Auth},
     redis_client::RedisClient,
     rooms::{
         create_board_for_room, get_boards, get_player, get_revealed_tiles, get_room, room_exists,
@@ -11,9 +12,9 @@ use crate::{
     },
 };
 
-use super::get_session_id;
-
-pub fn handle_tiles(socket: &SocketRef, auth: Auth) {
+pub fn handle_tiles(socket: &SocketRef, real_auth: &Auth) {
+    // Handle revealing a tile
+    let auth = real_auth.clone();
     socket.on(
         "choose_tile",
         |socket: SocketRef,
@@ -27,12 +28,16 @@ pub fn handle_tiles(socket: &SocketRef, auth: Auth) {
             }
 
             let room_id = room_option.unwrap();
-            let room_result = room_exists(&client, &room_id).await;
+            // Do we really have to check if the room exists?
+            // I don't think so right? since the player won't be
+            // found if the room doesn't exist (Correct me if i'm wrong)
+            //
+            /* let room_result = room_exists(&client, &room_id).await;
 
             if !room_result {
                 socket.emit("error", "Room not found").ok();
                 return;
-            }
+                } */
 
             let cookies = socket.req_parts().headers.get("cookie");
             let session_id_option = get_session_id(cookies);
@@ -82,5 +87,54 @@ pub fn handle_tiles(socket: &SocketRef, auth: Auth) {
 
             socket.within(format!("roomId/{}", room_id)).emit("board_updated", json!(returned_tile)).ok();
         },
-    )
+    );
+
+    // Handle flagging
+    let auth = real_auth.clone();
+    socket.on("flag_tile", |socket: SocketRef, Data::<(usize, usize)>((x, y)), State::<RedisClient>(client)| async move {
+        let room_option = auth.room_id;
+
+        if let None = room_option {
+            socket.emit("error", "Room Id not found").ok();
+            return;
+        }
+
+        let room_id = room_option.unwrap();
+        let boards = get_boards(&client, &room_id).await;
+
+        if let Err(_) = boards {
+            socket.emit("error", "Unable to retrieve boards").ok();
+            return;
+        }
+
+        let Boards { server_board, mut client_board } = boards.unwrap();
+        let tile = client_board.get(x).and_then(|x| x.get(y));
+
+        if let None = tile {
+            socket.emit("error", "X or Y coordinates are invalid").ok();
+            return;
+        }
+
+        let is_flagged = tile.unwrap() == &UNKNOWN_TILE;
+        let new_tile = if is_flagged {
+            FLAGGED_TILE
+        } else {
+            UNKNOWN_TILE
+        };
+
+        client_board[x][y] = new_tile;
+
+        let new_boards = Boards {
+            client_board,
+            server_board,
+        };
+
+        set_boards(&client, &room_id, &new_boards).await;
+
+        socket.within(format!("roomId/{}", room_id)).emit("board_updated", json!(TileOrHashmap::Tile(Tile {
+            x,
+            y,
+            state: new_tile,
+        }))).ok();
+    });
 }

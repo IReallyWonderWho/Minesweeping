@@ -42,7 +42,7 @@ async function consumeRateLimit(
 // The room data on the server and sveltekit are completely different, so
 // we need a layer to actually synchronize them
 // in this case we're using redis
-function multiplayer(io: Server) {
+export default function multiplayer(io: Server) {
   /* redis.subscribe("room/*", (room: Room) => {
     io.to(`roomId/${room.roomId}`).emit(
       `roomId/${room.roomId}`,

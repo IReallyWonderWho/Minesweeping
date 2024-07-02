@@ -21,8 +21,8 @@ pub struct Room {
 
 #[derive(Debug, Serialize, Deserialize, FromRedisValue)]
 pub struct Player {
-    nickname: String,
-    color: String,
+    pub nickname: String,
+    pub color: String,
 }
 
 fn get_random_hsl() -> String {

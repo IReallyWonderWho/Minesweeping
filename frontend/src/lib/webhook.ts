@@ -9,7 +9,7 @@ export function getSocket(roomId: string) {
       auth: {
         roomId,
       },
-      }); */
+    }); */
     socket = io("ws://localhost:3000", {
       withCredentials: true,
       auth: {

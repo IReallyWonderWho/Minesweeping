@@ -5,8 +5,8 @@ pub mod board {
     use redis_macros::{FromRedisValue, ToRedisArgs};
     use serde::{Deserialize, Serialize};
 
-    const FLAGGED_TILE: i32 = -3;
-    const UNKNOWN_TILE: i32 = -2;
+    pub const FLAGGED_TILE: i32 = -3;
+    pub const UNKNOWN_TILE: i32 = -2;
     const MINE_TILE: i32 = -1;
     const ZERO_TILE: i32 = 0;
 
