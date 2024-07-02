@@ -13,15 +13,15 @@ pub mod board {
     const TILE_TO_MINE_RATIO: f64 = 6.0;
 
     pub struct Tile {
-        x: usize,
-        y: usize,
-        state: i32,
+        pub x: usize,
+        pub y: usize,
+        pub state: i32,
     }
 
     #[derive(Debug, Serialize, Deserialize, ToRedisArgs, FromRedisValue)]
     pub struct Boards {
-        client_board: Vec<Vec<i32>>,
-        server_board: Vec<Vec<i32>>,
+        pub client_board: Vec<Vec<i32>>,
+        pub server_board: Vec<Vec<i32>>,
     }
 
     pub enum TileOrHashmap {
@@ -188,7 +188,7 @@ pub mod board {
     }
 
     pub fn return_tile(
-        server_board: Vec<Vec<i32>>,
+        server_board: &Vec<Vec<i32>>,
         client_board: &mut Vec<Vec<i32>>,
         row: usize,
         column: usize,

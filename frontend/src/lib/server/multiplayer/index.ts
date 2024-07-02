@@ -42,13 +42,14 @@ async function consumeRateLimit(
 // The room data on the server and sveltekit are completely different, so
 // we need a layer to actually synchronize them
 // in this case we're using redis
-export default function multiplayer(io: Server) {
+function multiplayer(io: Server) {
   /* redis.subscribe("room/*", (room: Room) => {
     io.to(`roomId/${room.roomId}`).emit(
       `roomId/${room.roomId}`,
       room["client_board"],
     );
     }); */
+  console.log("WHAT THE SIGMA");
   io.use(async (socket, next) => {
     const session_id = getSessionId(socket.handshake.headers.cookie);
     const roomId: unknown = socket.handshake.auth.roomId;

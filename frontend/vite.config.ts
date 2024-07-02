@@ -5,11 +5,11 @@ import { Server } from "socket.io";
 // This is for development websocket hosting
 const webSocketServer = {
   name: "webSocketServer",
-  async configureServer(server: ViteDevServer) {
+  /*async configureServer(server: ViteDevServer) {
     import("./dist/multiplayer").then(({ default: multiplayer }) => {
       multiplayer(new Server(server.httpServer));
     });
-  },
+  },*/
 };
 
 export default defineConfig({

@@ -1,24 +1,42 @@
-use socketioxide::{extract::SocketRef, SocketIo};
+use handlers::{authenticate_middleware, handle_tiles::handle_tiles, join_room::join_room};
+use rooms::create_room;
+use socketioxide::{extract::SocketRef, handler::ConnectHandler, SocketIo};
+use tower::ServiceBuilder;
+use tower_cookies::CookieManagerLayer;
+use tower_http::cors::CorsLayer;
 use tracing::info;
 use tracing_subscriber::FmtSubscriber;
+
+mod board;
+mod handlers;
+mod redis_client;
+mod rooms;
+
+use redis_client::RedisClient;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::subscriber::set_global_default(FmtSubscriber::default())?;
 
-    let (layer, io) = SocketIo::new_layer();
+    let client = RedisClient::new();
 
-    io.ns("/", |s: SocketRef| {
-        s.on("ping", |s: SocketRef| {
-            s.emit("message", "Pong!").ok();
-        });
-    });
+    create_room(&client, Some(String::from("Never going to give your ip"))).await;
 
-    let app = axum::Router::new().layer(layer);
+    let (layer, io) = SocketIo::builder().with_state(client).build_layer();
+
+    io.ns("/", handlers::on_connect.with(authenticate_middleware));
+
+    let app = axum::Router::new().layer(CookieManagerLayer::new()).layer(
+        ServiceBuilder::new()
+            .layer(CorsLayer::very_permissive())
+            .layer(layer),
+    );
 
     info!("Starting server");
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
+        .await
+        .unwrap();
     axum::serve(listener, app).await.unwrap();
 
     Ok(())

@@ -42,6 +42,7 @@ export const actions: Actions = {
     cookies.set("SESSION_ID", session_token, {
       expires: date,
       path: "/",
+      sameSite: "lax",
     });
 
     throw redirect(303, `/playing/${roomId}`);

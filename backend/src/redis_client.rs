@@ -1,14 +1,14 @@
-use redis::{AsyncCommands, Client, FromRedisValue, RedisResult, ToRedisArgs};
+use redis::{AsyncCommands, Client, Commands, FromRedisValue, RedisResult, ToRedisArgs};
 
 pub struct RedisClient {
     client: Client,
 }
 
 impl RedisClient {
-    pub fn new() -> RedisClient {
+    pub fn new() -> Self {
         let client = Client::open("redis://127.0.0.1/").unwrap();
 
-        RedisClient { client }
+        Self { client }
     }
 
     pub async fn get<T: FromRedisValue>(&self, key: &str) -> RedisResult<T> {
@@ -35,6 +35,12 @@ impl RedisClient {
         let mut connection = self.client.get_multiplexed_async_connection().await?;
 
         Ok(connection.hexists(key, field).await?)
+    }
+
+    pub fn sync_hexists(&self, key: &str, field: &str) -> RedisResult<bool> {
+        let mut connection = self.client.get_connection()?;
+
+        Ok(connection.hexists(key, field)?)
     }
 
     pub async fn hset<T: ToRedisArgs + Send + Sync>(
@@ -70,5 +76,13 @@ impl RedisClient {
         connection.del(key).await?;
 
         Ok(())
+    }
+}
+
+impl Clone for RedisClient {
+    fn clone(&self) -> Self {
+        Self {
+            client: self.client.clone(),
+        }
     }
 }
