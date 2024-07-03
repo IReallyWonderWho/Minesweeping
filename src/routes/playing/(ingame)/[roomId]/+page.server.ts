@@ -9,10 +9,7 @@ async function isSessionReal(roomId: string, session_id: string) {
   return playerExists(roomId, session_id);
 }
 
-export async function isSessionValid(
-  session_id: string | undefined,
-  roomId: unknown,
-) {
+async function isSessionValid(session_id: string | undefined, roomId: unknown) {
   if (
     session_id !== undefined &&
     typeof roomId === "string" &&
