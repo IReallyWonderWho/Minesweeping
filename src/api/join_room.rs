@@ -13,6 +13,8 @@ async fn main() -> Result<(), Error> {
 pub async fn handler(request: Request) -> Result<Response<Body>, Error> {
     let body = request.body();
 
+    let a = serde_json::from_str(body);
+
     info!("{:?}", body);
 
     Ok(Response::builder()
