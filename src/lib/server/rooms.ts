@@ -23,6 +23,10 @@ export async function addPlayer(roomId: string, player_name: string) {
   return session_token;
 }
 
+export async function playerExists(roomId: string, session_token: string) {
+  return await redis.hExists(`roomId/${roomId}/players`, session_token);
+}
+
 export function getAllPlayers(roomId: string) {
   return redis.hGetAll<
     Map<string, { nickname: string; color: string }> | undefined
