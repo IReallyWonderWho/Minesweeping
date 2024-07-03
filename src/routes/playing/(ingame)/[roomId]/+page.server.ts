@@ -1,7 +1,27 @@
 import { getAllPlayers, getBoards, getTime } from "$lib/server/rooms";
 import { redirect } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
-import { isSessionValid } from "$lib/server/multiplayer/verifySession";
+import { roomExists, playerExists } from "$lib/server/rooms";
+
+async function isSessionReal(roomId: string, session_id: string) {
+  if (!(await roomExists(roomId))) return false;
+
+  return playerExists(roomId, session_id);
+}
+
+export async function isSessionValid(
+  session_id: string | undefined,
+  roomId: unknown,
+) {
+  if (
+    session_id !== undefined &&
+    typeof roomId === "string" &&
+    (await isSessionReal(roomId, session_id))
+  ) {
+    return true;
+  }
+  return false;
+}
 
 export const load: PageServerLoad = async ({ params, cookies }) => {
   const roomId = params["roomId"];
