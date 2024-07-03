@@ -1,0 +1,21 @@
+[package]
+name = "vercel-functions"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rand = "0.8.5"
+serde = { version = "1.0.118", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.38.0", features = ["macros"] }
+uuid = { version = "1.9.1", features = ["v4"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+chrono = "0.4.38"
+vercel_runtime = "1.1.4"
+
+[[bin]]
+name = "join_room"
+path = "api/join_room.rs"
