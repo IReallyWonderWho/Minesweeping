@@ -1,8 +1,17 @@
 <script lang="ts">
+    import { onMount } from "svelte";
     import { enhance } from "$app/forms";
     import Icon from "$lib/components/Icon.svelte";
 
     let roomId: string = "";
+
+    onMount(async () => {
+        console.log(
+            await fetch("/api/join_room", {
+                roomId: "JOE MAMA",
+            }),
+        );
+    });
 </script>
 
 <main class="h-[100vh] hero">

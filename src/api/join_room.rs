@@ -1,7 +1,14 @@
+use serde::Deserialize;
 use serde_json::json;
 use tracing::info;
 use tracing_subscriber::FmtSubscriber;
 use vercel_runtime::{run, Body, Error, Request, Response, StatusCode};
+
+#[derive(Debug, Deserialize)]
+struct Data {
+    #[serde(rename = "room_id")]
+    pub room_id: String,
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -16,6 +23,14 @@ pub async fn handler(request: Request) -> Result<Response<Body>, Error> {
     } else {
         None
     };
+
+    if let None = body {
+        return Ok(Response::builder()
+            .status(StatusCode::BAD_REQUEST)
+            .body(json!("Body not found").to_string().into())?);
+    }
+
+    let body: Result<Data, _> = serde_json::from_str(body.unwrap());
 
     info!("{:?}", body);
 
