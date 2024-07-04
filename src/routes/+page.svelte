@@ -7,8 +7,9 @@
 
     onMount(async () => {
         console.log(
-            await fetch("/api/join_room", {
-                roomId: "JOE MAMA",
+            await fetch("/.netlify/functions/handle_tiles", {
+                method: "POST",
+                body: JSON.stringify({ roomId: "hiim64", x: 1, y: 1 }),
             }),
         );
     });
