@@ -1,4 +1,5 @@
 import { roomExists } from "$lib/server/rooms";
+import { encode } from "$lib/utility";
 import { fail, redirect, type Actions } from "@sveltejs/kit";
 
 export const actions: Actions = {
@@ -14,11 +15,15 @@ export const actions: Actions = {
       return fail(400, {
         error: "Room id must be a string",
       });
+    const room_id = encode(roomId);
+    console.log(`ROOM: ${room_id}`);
 
-    const room = await roomExists(roomId);
+    const room = await roomExists(room_id);
+    console.log(room);
+    console.log(`REDIRECTING TO: ${room_id}`);
 
     return room
-      ? redirect(303, `/playing/${roomId}/nickname`)
+      ? redirect(303, `/playing/${room_id}/nickname`)
       : fail(404, {
           error: "Room not found",
         });

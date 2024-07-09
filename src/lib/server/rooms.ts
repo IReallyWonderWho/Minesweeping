@@ -1,43 +1,76 @@
-import { v4 as uuidv4 } from "uuid";
-import redis from "../redis";
 import { getRandomHSL } from "$lib/utility";
+import { supabase } from "$lib/server/supabaseClient";
 
-export function getBoards(roomId: string) {
-  return redis.hGet<
-    | { server_board: Array<Array<number>>; client_board: Array<Array<number>> }
-    | undefined
-  >(`roomId/${roomId}`, "boards");
+export async function getBoards(room_id: number) {
+  const { data } = await supabase
+    .from("rooms")
+    .select("id, client_board, serverboard(server_board)")
+    .eq("id", room_id)
+    .single();
+
+  return data;
 }
 
-export async function addPlayer(roomId: string, player_name: string) {
-  const session_token = uuidv4();
-
-  console.log(session_token);
+// TODO move this to the client side
+/* export async function addPlayer(
+  roomId: number,
+  player_name: string,
+  userId: string,
+) {
   const color = getRandomHSL();
 
-  await redis.hSet(`roomId/${roomId}/players`, session_token, {
-    nickname: player_name,
-    color,
-  });
+  // Add player to the room
+  const { error: joinError } = await supabase
+    .from("room_players")
+    .insert({
+      room_id: roomId,
+      user_id: userId,
+      color: color,
+      nickname: player_name,
+    });
 
-  return session_token;
-}
+  if (joinError) {
+    console.error("Error joining room:", joinError);
+    return joinError;
+  }
 
-export async function playerExists(roomId: string, session_token: string) {
+  return userId;
+} */
+
+/* export async function playerExists(roomId: string, session_token: string) {
   return await redis.hExists(`roomId/${roomId}/players`, session_token);
+} */
+
+export async function getAllPlayers(roomId: number) {
+  const { data, error } = await supabase
+    .from("rooms")
+    .select(
+      `
+      id,
+      players:room_players(user_id)
+    `,
+    )
+    .eq("id", roomId);
+
+  console.log(data);
+  console.log(error);
 }
 
-export function getAllPlayers(roomId: string) {
-  return redis.hGetAll<
-    Map<string, { nickname: string; color: string }> | undefined
-  >(`roomId/${roomId}/players`);
-}
-
-export async function getTime(roomId: string) {
+/* export async function getTime(roomId: string) {
   console.log(await redis.hGet(`roomId/${roomId}`, "time_started"));
   return await redis.hGet<number>(`roomId/${roomId}`, "time_started");
-}
+} */
 
-export async function roomExists(roomId: string) {
-  return await redis.exists(`roomId/${roomId}`);
+export async function roomExists(roomId: number) {
+  const { data, error } = await supabase
+    .from("rooms")
+    .select("id")
+    .eq("id", roomId)
+    .single();
+
+  if (!error && data) {
+    return true;
+  }
+
+  return false;
 }

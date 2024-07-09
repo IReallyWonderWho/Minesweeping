@@ -1,15 +1,42 @@
 use aws_lambda_events::apigw::ApiGatewayProxyRequest;
-use aws_lambda_events::encodings::Body;
 use aws_lambda_events::event::apigw::ApiGatewayProxyResponse;
-use board::board::generate_solved_boards;
-use http::header::HeaderMap;
+use board::board::{generate_solved_boards, return_tile, Boards, TileOrHashmap};
+use http::HeaderMap;
 use lambda_runtime::{service_fn, Error, LambdaEvent};
 use postgrest::Postgrest;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde_json::json;
 use std::collections::HashMap;
-use tracing::{error, info};
-use tracing_subscriber::FmtSubscriber;
-use util::{decode, encode, get_session_id};
+use std::sync::OnceLock;
+use std::time::{Duration, Instant};
+use tokio::sync::Mutex;
+
+static SUPABASE_CLIENT: OnceLock<Postgrest> = OnceLock::new();
+// Fetching data from supabase is a slow process, by caching it we could potentially save like 150ms
+static ROOM_CACHE: OnceLock<Mutex<HashMap<String, Room>>> = OnceLock::new();
+
+fn get_supabase_client() -> &'static Postgrest {
+    SUPABASE_CLIENT.get_or_init(|| {
+        Postgrest::new("https://dsuftvbhcbtcwoqhfdgj.supabase.co/rest/v1")
+            .insert_header(
+                "Authorization",
+                format!(
+                    "Bearer {}",
+                    dotenv::var("SUPABASE_PRIVATE_API_KEY")
+                        .expect("SUPABASE_PRIVATE_API_KEY must be set")
+                ),
+            )
+            .insert_header(
+                "apikey",
+                dotenv::var("SUPABASE_PRIVATE_API_KEY")
+                    .expect("SUPABASE_PRIVATE_API_KEY must be set"),
+            )
+    })
+}
+
+fn get_room_cache() -> &'static Mutex<HashMap<String, Room>> {
+    ROOM_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
 
 #[derive(Debug, Deserialize)]
 struct Data {
@@ -20,115 +47,177 @@ struct Data {
 }
 
 #[derive(Debug, Deserialize)]
-struct Room {
-    client_board: Option<Vec<Vec<i32>>>,
+struct ServerBoard {
+    id: u64,
     server_board: Option<Vec<Vec<i32>>>,
-    revealed_tiles: u32,
-    players: HashMap<String, Player>,
 }
 
-#[derive(Debug, Deserialize)]
-struct Player {
-    x: f32,
-    y: f32,
-    color: String,
-}
-
-fn quick_response(status_code: i64) -> ApiGatewayProxyResponse {
-    ApiGatewayProxyResponse {
-        status_code,
-        headers: HeaderMap::new(),
-        multi_value_headers: HeaderMap::new(),
-        body: None,
-        is_base64_encoded: false,
+impl Clone for ServerBoard {
+    fn clone(&self) -> Self {
+        ServerBoard {
+            id: self.id.clone(),
+            server_board: self.server_board.clone(),
+        }
     }
 }
 
-fn create_board_for_room(
+#[derive(Debug, Deserialize)]
+struct Room {
+    client_board: Option<Vec<Vec<i32>>>,
+    serverboard: Option<ServerBoard>,
+    revealed_tiles: usize,
+}
+
+impl Clone for Room {
+    fn clone(&self) -> Self {
+        Room {
+            client_board: self.client_board.clone(),
+            serverboard: self.serverboard.clone(),
+            revealed_tiles: self.revealed_tiles.clone(),
+        }
+    }
+}
+
+async fn create_board_for_room(
     client: &Postgrest,
-    room_id: u64,
+    room_id: &str,
     number_of_rows_columns: u32,
     safe_row: usize,
     safe_column: usize,
-) {
-    info!("Generating boards!");
+) -> (Vec<Vec<i32>>, Vec<Vec<i32>>) {
+    let Boards {
+        client_board,
+        server_board,
+    } = generate_solved_boards(number_of_rows_columns, safe_row, safe_column);
 
-    let boards = generate_solved_boards(number_of_rows_columns, safe_row, safe_column);
+    let (_res1, _res2) = tokio::join!(
+        client
+            .from("rooms")
+            .update(
+                json!({
+                    "client_board": client_board,
+                })
+                .to_string(),
+            )
+            .eq("id", room_id)
+            .execute(),
+        client
+            .from("serverboard")
+            .upsert(
+                json!({
+                    "server_board": server_board,
+                    "id": room_id,
+                })
+                .to_string()
+            )
+            .eq("id", room_id)
+            .execute()
+    );
 
-    client.from("rooms").eq("id", room_id)
+    (server_board, client_board)
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    tracing::subscriber::set_global_default(FmtSubscriber::default())?;
+    dotenv::dotenv().ok();
 
+    println!("HELLO FROM TILES");
     let service_fn = service_fn(my_handler);
     let func = service_fn;
 
     lambda_runtime::run(func).await?;
 
+    println!("Quitting");
     Ok(())
 }
 
 pub(crate) async fn my_handler(
     event: LambdaEvent<ApiGatewayProxyRequest>,
 ) -> Result<ApiGatewayProxyResponse, Error> {
-    let client = Postgrest::new("https://dsuftvbhcbtcwoqhfdgj.supabase.co/rest/v1")
-        .insert_header("apikey", dotenv::var("SUPABASE_PUBLIC_API_KEY").unwrap());
-    let cookies = event.payload.headers.get("cookie");
-    let session_id_option = get_session_id(cookies);
+    let now = Instant::now();
+    let body: Data = serde_json::from_str(&event.payload.body.unwrap_or_default())
+        .map_err(|e| Error::from(format!("Failed to parse body: {}", e)))?;
 
-    let body: Result<Data, serde_json::Error> =
-        serde_json::from_str(&event.payload.body.unwrap_or("".to_string()));
+    let Data { room_id, x, y } = body;
 
-    if body.is_err() || session_id_option.is_none() {
-        let resp = quick_response(400);
+    let client = get_supabase_client();
+    let rooms = get_room_cache();
 
-        return Ok(resp);
+    let now = Instant::now();
+    let mut room_option = None;
+    {
+        let mut rooms_guard = rooms.lock().await;
+        if let Some(room) = rooms_guard.get_mut(&room_id) {
+            // Do operations with room here
+            room_option = Some(room.clone()); // If you need to use it outside the lock
+        }
     }
 
-    let Data { room_id, x, y } = body.unwrap();
-    let room_id = encode(&room_id.to_lowercase()).to_string();
+    if room_option.is_none() {
+        let response = client
+            .from("rooms")
+            .eq("id", &room_id)
+            .select("client_board, serverboard(id, server_board), revealed_tiles")
+            .single()
+            .execute()
+            .await?;
 
-    let data_result = client
-        .from("rooms")
-        .eq("id", room_id)
-        .select("*")
-        .single()
-        .execute()
-        .await;
+        println!("First database call: {:?}", now.elapsed());
 
-    // Log any errors that may happen when fetching data from supabase
-    if let Err(err) = data_result {
-        error!(
-            "An unexpected error occured while fetching room data: {:?}",
-            err
-        );
+        let room: Room = serde_json::from_str(&response.text().await?)?;
 
-        let resp = quick_response(500);
+        let mut rooms_guard = rooms.lock().await;
+        rooms_guard.insert(room_id.clone(), room.clone());
 
-        return Ok(resp);
+        room_option = Some(room);
     }
 
     let Room {
-        players,
-        client_board,
-        server_board,
+        mut client_board,
+        serverboard,
         revealed_tiles,
-    } = serde_json::from_str(&data_result.unwrap().text().await.unwrap()).unwrap();
-    let player = players.get(session_id_option.unwrap().value());
+    } = room_option.unwrap();
+    let mut server_board = serverboard.and_then(|a| a.server_board);
+    /* let player = players.is_some_and(|map| map.get(session_id_option.unwrap().value()).is_some());
 
-    if player.is_none() {
+    if !player {
         let res = quick_response(404);
 
         return Ok(res);
+        } */
+    if server_board.is_none() || client_board.is_none() {
+        let (server, client) = create_board_for_room(&client, &room_id, 12, x, y).await;
+
+        server_board = Some(server);
+        client_board = Some(client);
     }
+    let mut client_board = client_board.unwrap();
+
+    let returned_tile = return_tile(&server_board.unwrap(), &mut client_board, x, y);
+
+    let increment_by = match &returned_tile {
+        TileOrHashmap::Hashmap(map) => map.len(),
+        TileOrHashmap::Tile(_) => 1,
+    };
+
+    client
+        .from("rooms")
+        .update(
+            json!({
+                "revealed_tiles": revealed_tiles + increment_by,
+                "client_board": client_board,
+            })
+            .to_string(),
+        )
+        .eq("id", &room_id)
+        .execute()
+        .await?;
 
     let resp = ApiGatewayProxyResponse {
         status_code: 200,
         headers: HeaderMap::new(),
         multi_value_headers: HeaderMap::new(),
-        body: Some(Body::Text(format!("Hello from {}", "HI"))),
+        body: None,
         is_base64_encoded: false,
     };
 

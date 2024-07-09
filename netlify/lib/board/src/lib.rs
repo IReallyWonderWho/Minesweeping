@@ -200,11 +200,7 @@ pub mod board {
         // Return the client board's answer if it has already
         // been returned before
         if client_tile != UNKNOWN_TILE {
-            return TileOrHashmap::Tile(Tile {
-                x: row,
-                y: column,
-                state: client_tile,
-            });
+            return TileOrHashmap::Hashmap(HashMap::new());
         }
 
         if server_tile == ZERO_TILE {

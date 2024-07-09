@@ -1,6 +1,9 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import type { Socket } from "socket.io-client";
+    import type {
+        RealtimeChannel,
+        RealtimePostgresUpdatePayload,
+    } from "@supabase/supabase-js";
     import Tile from "./Tile.svelte";
     import { addToast } from "./Toaster.svelte";
 
@@ -8,8 +11,9 @@
     const FLAGGED_TILE = -3;
     const number_of_rows_columns = 12;
 
+    export let roomId: string;
+    export let channel: RealtimeChannel;
     export let board: Array<Array<number>> = createTempBoard();
-    export let socket: Socket;
     export let element: Element;
 
     function createTempBoard() {
@@ -26,12 +30,23 @@
         return real_board;
     }
 
+    let test: number;
+
     function postTile(x: number, y: number) {
         if (board && board[x][y] !== UNKNOWN_TILE) return;
 
         console.log(`x: ${x}, y: ${y}`);
 
-        socket.emit("choose_tile", x, y);
+        test = Date.now();
+
+        fetch("/.netlify/functions/handle_tiles", {
+            method: "POST",
+            body: JSON.stringify({
+                x,
+                y,
+                roomId,
+            }),
+        });
     }
 
     function flagTile(x: number, y: number) {
@@ -46,7 +61,27 @@
     }
 
     onMount(() => {
-        socket.on(
+        // TODO
+        channel.on(
+            "postgres_changes",
+            {
+                event: "UPDATE",
+                schema: "public",
+                table: "rooms",
+            },
+            (
+                payload: RealtimePostgresUpdatePayload<{
+                    client_board: Array<Array<number>>;
+                }>,
+            ) => {
+                if (!board) return;
+
+                console.log(Date.now() - test);
+                board = payload.new.client_board;
+                console.log(Date.now() - test);
+            },
+        );
+        /* socket.on(
             "board_updated",
             (
                 tile:
@@ -97,7 +132,7 @@
 
         return () => {
             socket.disconnect();
-        };
+            }; */
     });
 </script>
 

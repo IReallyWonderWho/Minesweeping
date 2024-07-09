@@ -1,18 +1,10 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import { enhance } from "$app/forms";
+    import { supabase } from "$lib/supabaseClient";
     import Icon from "$lib/components/Icon.svelte";
 
     let roomId: string = "";
-
-    onMount(async () => {
-        console.log(
-            await fetch("/.netlify/functions/handle_tiles", {
-                method: "POST",
-                body: JSON.stringify({ roomId: "hiim64", x: 1, y: 1 }),
-            }),
-        );
-    });
 </script>
 
 <main class="h-[100vh] hero">

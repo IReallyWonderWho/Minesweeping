@@ -7,10 +7,12 @@
     import { addToast } from "$lib/components/Toaster.svelte";
     import PlayerList from "$lib/components/PlayerList.svelte";
     import BoardStats from "$lib/components/BoardStats.svelte";
+    import { supabase } from "$lib/supabaseClient";
+    import type { RealtimePostgresInsertPayload } from "@supabase/supabase-js";
 
     export let data: {
         board: Array<Array<number>> | undefined;
-        players: Array<{ nickname: string; color: string }>;
+        players: Array<{ nickname: string; color: string; user_id: string }>;
         time: number | undefined;
     };
 
@@ -24,6 +26,14 @@
     // Approximately 15 FPS
     const UPDATE_FPS = 66.667;
 
+    // Remove self broadcast later once done testing
+    const channel = supabase.channel(roomId, {
+        config: {
+            broadcast: { self: true },
+        },
+    });
+    const user_id = supabase.auth.getUser().then((data) => data.data.user?.id);
+
     let previous_position: [number, number] = [0, 0];
     let last_call = Date.now();
 
@@ -31,7 +41,10 @@
     let domrect: DOMRect | undefined;
 
     // Nickname: [x, y, hsl color]
-    let player_positions: Map<string, [number, number, string]> = new Map();
+    let player_positions: Map<
+        string,
+        { nickname: string; x: number; y: number; color: string }
+    > = new Map();
 
     function windowResized() {
         domrect = element.getBoundingClientRect();
@@ -41,7 +54,7 @@
         return Math.min(Math.max(num, min), max);
     }
 
-    function handleMouseMove(event: MouseEvent) {
+    async function handleMouseMove(event: MouseEvent) {
         const now = Date.now();
 
         if (now - last_call < UPDATE_FPS) return;
@@ -61,39 +74,80 @@
         last_call = now;
 
         if (distance >= CHANGE_THRESHOLD) {
-            socket?.emit("mouse_move", x, y);
+            channel.send({
+                type: "broadcast",
+                event: "mouseUpdate",
+                payload: { x, y, user_id: await user_id },
+            });
         }
     }
 
     onMount(() => {
-        if (roomId && !connected) {
-            socket?.emit("join_room", roomId);
-        }
+        channel.on(
+            "postgres_changes",
+            {
+                event: "INSERT",
+                schema: "public",
+                table: "room_players",
+                filter: `room_id=eq.${roomId}`,
+            },
+            (
+                payload: RealtimePostgresInsertPayload<{
+                    user_id: string;
+                    nickname: string;
+                    color: string;
+                }>,
+            ) => {
+                player_positions.set(payload.new.user_id, {
+                    x: 0,
+                    y: 0,
+                    color: payload.new.color,
+                    nickname: payload.new.nickname,
+                });
+                player_positions = player_positions;
+            },
+        );
 
-        socket?.on("connect_error", (error) => {
-            addToast({
-                data: {
-                    title: error.name,
-                    description: error.message,
-                    color: "red",
-                },
+        channel.on("broadcast", { event: "mouseUpdate" }, ({ payload }) => {
+            const data = player_positions.get(payload.user_id);
+
+            if (!data) return;
+
+            const { color, nickname } = data;
+
+            player_positions.set(payload.user_id, {
+                x: payload.x,
+                y: payload.y,
+                color,
+                nickname,
             });
-        });
-
-        socket?.on("update_player_mouse", ({ nickname, color, x, y }) => {
-            player_positions.set(nickname, [x, y, color]);
             player_positions = player_positions;
         });
 
         domrect = element.getBoundingClientRect();
 
-        for (const { nickname, color } of data["players"]) {
-            player_positions.set(nickname, [0, 0, color]);
+        for (const { nickname, color, user_id } of data["players"]) {
+            player_positions.set(user_id, { x: 0, y: 0, color, nickname });
             player_positions = player_positions;
         }
 
+        if (roomId && !connected) {
+            channel.subscribe((status) => {
+                if (status !== "SUBSCRIBED") {
+                    addToast({
+                        data: {
+                            title: "Unable to connect",
+                            description: "Unable to join room channel",
+                            color: "red",
+                        },
+                    });
+                    return;
+                }
+            });
+        }
+
         return () => {
-            socket?.disconnect();
+            supabase.removeChannel(channel);
         };
     });
 </script>
@@ -103,17 +157,18 @@
 <main
     class="h-[100vh] grid grid-cols-3 items-center justify-items-center overflow-hidden"
 >
-    {#if roomId && socket}
+    {#if roomId && channel}
         <BoardStats time_started={data.time} />
         <Board
             bind:element
             class="col-start-2 relative"
-            {socket}
+            {roomId}
+            {channel}
             board={data.board}
             on:mousemove={handleMouseMove}
         >
             <div slot="players">
-                {#each player_positions as [nickname, [x, y, color]] (nickname)}
+                {#each player_positions as [nickname, { x, y, color }] (nickname)}
                     <Cursor height="32px" width="32px" {x} {y} {color} />
                 {/each}
             </div>

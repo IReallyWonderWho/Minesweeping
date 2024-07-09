@@ -14,3 +14,17 @@ export function getRandomHSL() {
 
   return `hsl(${H},${S}%,${L}%)`;
 }
+
+const BASE = 36;
+
+export function encode(s: string) {
+  return s.split("").reduce((acc, char) => {
+    if (char >= "0" && char <= "9") {
+      return acc * BASE + (char.charCodeAt(0) - "0".charCodeAt(0));
+    } else if (char >= "a" && char <= "z") {
+      return acc * BASE + (char.charCodeAt(0) - "a".charCodeAt(0) + 10);
+    } else {
+      throw new Error("Invalid character");
+    }
+  }, 0);
+}

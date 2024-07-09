@@ -5,8 +5,11 @@ export const load: ServerLoad = async ({ params }) => {
   const roomId = params["roomId"];
 
   if (!roomId) throw redirect(303, "/");
+  console.log(roomId);
+  const room_id = Number(roomId);
 
-  const room_exists = await roomExists(roomId);
+  const room_exists = await roomExists(room_id);
+  console.log(`bruh: ${room_exists}`);
 
   if (!room_exists) throw redirect(303, "/");
 };
