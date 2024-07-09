@@ -8,12 +8,8 @@ use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::OnceLock;
-use std::time::{Duration, Instant};
-use tokio::sync::Mutex;
 
 static SUPABASE_CLIENT: OnceLock<Postgrest> = OnceLock::new();
-// Fetching data from supabase is a slow process, by caching it we could potentially save like 150ms
-static ROOM_CACHE: OnceLock<Mutex<HashMap<String, Room>>> = OnceLock::new();
 
 fn get_supabase_client() -> &'static Postgrest {
     SUPABASE_CLIENT.get_or_init(|| {
@@ -34,10 +30,6 @@ fn get_supabase_client() -> &'static Postgrest {
     })
 }
 
-fn get_room_cache() -> &'static Mutex<HashMap<String, Room>> {
-    ROOM_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
-}
-
 #[derive(Debug, Deserialize)]
 struct Data {
     x: usize,
@@ -52,30 +44,11 @@ struct ServerBoard {
     server_board: Option<Vec<Vec<i32>>>,
 }
 
-impl Clone for ServerBoard {
-    fn clone(&self) -> Self {
-        ServerBoard {
-            id: self.id.clone(),
-            server_board: self.server_board.clone(),
-        }
-    }
-}
-
 #[derive(Debug, Deserialize)]
 struct Room {
     client_board: Option<Vec<Vec<i32>>>,
     serverboard: Option<ServerBoard>,
     revealed_tiles: usize,
-}
-
-impl Clone for Room {
-    fn clone(&self) -> Self {
-        Room {
-            client_board: self.client_board.clone(),
-            serverboard: self.serverboard.clone(),
-            revealed_tiles: self.revealed_tiles.clone(),
-        }
-    }
 }
 
 async fn create_board_for_room(
@@ -121,62 +94,39 @@ async fn create_board_for_room(
 async fn main() -> Result<(), Error> {
     dotenv::dotenv().ok();
 
-    println!("HELLO FROM TILES");
     let service_fn = service_fn(my_handler);
     let func = service_fn;
 
     lambda_runtime::run(func).await?;
 
-    println!("Quitting");
     Ok(())
 }
 
 pub(crate) async fn my_handler(
     event: LambdaEvent<ApiGatewayProxyRequest>,
 ) -> Result<ApiGatewayProxyResponse, Error> {
-    let now = Instant::now();
     let body: Data = serde_json::from_str(&event.payload.body.unwrap_or_default())
         .map_err(|e| Error::from(format!("Failed to parse body: {}", e)))?;
 
     let Data { room_id, x, y } = body;
 
     let client = get_supabase_client();
-    let rooms = get_room_cache();
 
-    let now = Instant::now();
-    let mut room_option = None;
-    {
-        let mut rooms_guard = rooms.lock().await;
-        if let Some(room) = rooms_guard.get_mut(&room_id) {
-            // Do operations with room here
-            room_option = Some(room.clone()); // If you need to use it outside the lock
-        }
-    }
+    let response = client
+        .from("rooms")
+        .eq("id", &room_id)
+        .select("client_board, serverboard(id, server_board), revealed_tiles")
+        .single()
+        .execute()
+        .await?;
 
-    if room_option.is_none() {
-        let response = client
-            .from("rooms")
-            .eq("id", &room_id)
-            .select("client_board, serverboard(id, server_board), revealed_tiles")
-            .single()
-            .execute()
-            .await?;
-
-        println!("First database call: {:?}", now.elapsed());
-
-        let room: Room = serde_json::from_str(&response.text().await?)?;
-
-        let mut rooms_guard = rooms.lock().await;
-        rooms_guard.insert(room_id.clone(), room.clone());
-
-        room_option = Some(room);
-    }
+    let room: Room = serde_json::from_str(&response.text().await?)?;
 
     let Room {
         mut client_board,
         serverboard,
         revealed_tiles,
-    } = room_option.unwrap();
+    } = room;
     let mut server_board = serverboard.and_then(|a| a.server_board);
     /* let player = players.is_some_and(|map| map.get(session_id_option.unwrap().value()).is_some());
 
@@ -200,18 +150,18 @@ pub(crate) async fn my_handler(
         TileOrHashmap::Tile(_) => 1,
     };
 
-    client
-        .from("rooms")
-        .update(
-            json!({
-                "revealed_tiles": revealed_tiles + increment_by,
-                "client_board": client_board,
-            })
-            .to_string(),
-        )
-        .eq("id", &room_id)
-        .execute()
-        .await?;
+    /* client
+    .from("rooms")
+    .update(
+        json!({
+            "revealed_tiles": revealed_tiles + increment_by,
+            "client_board": client_board,
+        })
+        .to_string(),
+    )
+    .eq("id", &room_id)
+    .execute()
+    .await?; */
 
     let resp = ApiGatewayProxyResponse {
         status_code: 200,
