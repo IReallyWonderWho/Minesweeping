@@ -62,13 +62,15 @@ export async function getAllPlayers(roomId: number) {
 } */
 
 export async function roomExists(roomId: number) {
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("rooms")
     .select("id")
     .eq("id", roomId)
     .single();
 
-  if (!error && data) {
+  console.log(error);
+
+  if (!error) {
     return true;
   }
 

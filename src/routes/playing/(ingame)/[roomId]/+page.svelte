@@ -2,7 +2,6 @@
     import { page } from "$app/stores";
     import Board from "$lib/components/Board.svelte";
     import Cursor from "$lib/components/Cursor.svelte";
-    import { connected, getSocket } from "$lib/webhook";
     import { onMount } from "svelte";
     import { addToast } from "$lib/components/Toaster.svelte";
     import PlayerList from "$lib/components/PlayerList.svelte";
@@ -17,7 +16,7 @@
     };
 
     const roomId = $page.params["roomId"];
-    const socket = roomId ? getSocket(roomId) : undefined;
+    const channel = supabase.channel(roomId);
 
     // TODO, move mouse logic to cursor when possible
     // If the mouse distance moved is under 10 pixels, it's not worth sending
@@ -26,12 +25,6 @@
     // Approximately 15 FPS
     const UPDATE_FPS = 66.667;
 
-    // Remove self broadcast later once done testing
-    const channel = supabase.channel(roomId, {
-        config: {
-            broadcast: { self: true },
-        },
-    });
     const user_id = supabase.auth.getUser().then((data) => data.data.user?.id);
 
     let previous_position: [number, number] = [0, 0];
@@ -40,7 +33,7 @@
     let element: any;
     let domrect: DOMRect | undefined;
 
-    // Nickname: [x, y, hsl color]
+    // User id: { x, y, color, nickname }
     let player_positions: Map<
         string,
         { nickname: string; x: number; y: number; color: string }
@@ -74,7 +67,7 @@
         last_call = now;
 
         if (distance >= CHANGE_THRESHOLD) {
-            channel.send({
+            await channel.send({
                 type: "broadcast",
                 event: "mouseUpdate",
                 payload: { x, y, user_id: await user_id },
@@ -131,20 +124,19 @@
             player_positions = player_positions;
         }
 
-        if (roomId && !connected) {
-            channel.subscribe((status) => {
-                if (status !== "SUBSCRIBED") {
-                    addToast({
-                        data: {
-                            title: "Unable to connect",
-                            description: "Unable to join room channel",
-                            color: "red",
-                        },
-                    });
-                    return;
-                }
-            });
-        }
+        channel.subscribe((status) => {
+            console.log(status);
+            if (status !== "SUBSCRIBED") {
+                addToast({
+                    data: {
+                        title: "Unable to connect",
+                        description: "Unable to join room channel",
+                        color: "red",
+                    },
+                });
+                return;
+            }
+        });
 
         return () => {
             supabase.removeChannel(channel);

@@ -1,10 +1,9 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import type {
-        RealtimeChannel,
-        RealtimePostgresUpdatePayload,
-    } from "@supabase/supabase-js";
+    import type { RealtimeChannel } from "@supabase/supabase-js";
+    import { supabase } from "$lib/supabaseClient";
     import Tile from "./Tile.svelte";
+    import { generateSolvedBoard, returnTile } from "$lib/boardUtils";
     import { addToast } from "./Toaster.svelte";
 
     const UNKNOWN_TILE = -2;
@@ -30,16 +29,16 @@
         return real_board;
     }
 
-    let test: number;
-
-    function postTile(x: number, y: number) {
+    // This should be handled server sided, but due to the poor performance of making database calls
+    // and the unability to cache stuff on serverless functions, this is the best solution
+    // unless this becomes popular enough to justify hosting an actual server
+    async function postTile(x: number, y: number) {
         if (board && board[x][y] !== UNKNOWN_TILE) return;
 
         console.log(`x: ${x}, y: ${y}`);
+        const a = Date.now();
 
-        test = Date.now();
-
-        fetch("/.netlify/functions/handle_tiles", {
+        const response = await fetch("/.netlify/functions/handletiles", {
             method: "POST",
             body: JSON.stringify({
                 x,
@@ -47,6 +46,29 @@
                 roomId,
             }),
         });
+
+        if (response.status === 200) {
+            const returned_tile = await response.json();
+
+            console.log(returned_tile);
+
+            if (!board) return;
+
+            if ("x" in returned_tile) {
+                const { x, y, state } = returned_tile;
+
+                board[x][y] = state;
+            } else {
+                for (const [id, state] of new Map(
+                    Object.entries(returned_tile),
+                )) {
+                    const [_x, _y] = id.split(",");
+                    const [x, y] = [Number(_x), Number(_y)];
+
+                    board[x][y] = state as number;
+                }
+            }
+        }
     }
 
     function flagTile(x: number, y: number) {
@@ -61,26 +83,6 @@
     }
 
     onMount(() => {
-        // TODO
-        channel.on(
-            "postgres_changes",
-            {
-                event: "UPDATE",
-                schema: "public",
-                table: "rooms",
-            },
-            (
-                payload: RealtimePostgresUpdatePayload<{
-                    client_board: Array<Array<number>>;
-                }>,
-            ) => {
-                if (!board) return;
-
-                console.log(Date.now() - test);
-                board = payload.new.client_board;
-                console.log(Date.now() - test);
-            },
-        );
         /* socket.on(
             "board_updated",
             (
