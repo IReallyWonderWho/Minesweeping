@@ -1,9 +1,8 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import type { RealtimeChannel } from "@supabase/supabase-js";
-    import { supabase } from "$lib/supabaseClient";
+    import type { RealtimePostgresUpdatePayload } from "@supabase/supabase-js";
     import Tile from "./Tile.svelte";
-    import { generateSolvedBoard, returnTile } from "$lib/boardUtils";
+    import { supabase } from "$lib/supabaseClient";
     import { addToast } from "./Toaster.svelte";
 
     const UNKNOWN_TILE = -2;
@@ -11,9 +10,16 @@
     const number_of_rows_columns = 12;
 
     export let roomId: string;
-    export let channel: RealtimeChannel;
     export let board: Array<Array<number>> = createTempBoard();
     export let element: Element;
+
+    const channel = supabase.channel(`room:${roomId}:tile`, {
+        config: {
+            broadcast: {
+                self: true,
+            },
+        },
+    });
 
     function createTempBoard() {
         let real_board = [];
@@ -35,8 +41,22 @@
     async function postTile(x: number, y: number) {
         if (board && board[x][y] !== UNKNOWN_TILE) return;
 
-        console.log(`x: ${x}, y: ${y}`);
-        const a = Date.now();
+        const { data, error } = await supabase.auth.getSession();
+
+        if (error) {
+            addToast({
+                data: {
+                    title: "Unable to get current session",
+                    description:
+                        "You're likely logged out, please try rejoining the room with a new nickname",
+                    color: "red",
+                },
+            });
+
+            return;
+        }
+
+        const accessToken = data.session?.access_token;
 
         const response = await fetch("/.netlify/functions/handletiles", {
             method: "POST",
@@ -45,12 +65,14 @@
                 y,
                 roomId,
             }),
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "application/json",
+            },
         });
 
         if (response.status === 200) {
             const returned_tile = await response.json();
-
-            console.log(returned_tile);
 
             if (!board) return;
 
@@ -71,7 +93,7 @@
         }
     }
 
-    function flagTile(x: number, y: number) {
+    async function flagTile(x: number, y: number) {
         if (
             board &&
             board[x][y] !== UNKNOWN_TILE &&
@@ -79,62 +101,100 @@
         )
             return;
 
-        socket.emit("flag_tile", x, y);
-    }
+        // This may be wrong as the client may have slightly different information
+        board[x][y] =
+            board[x][y] === FLAGGED_TILE ? UNKNOWN_TILE : FLAGGED_TILE;
 
-    onMount(() => {
-        /* socket.on(
-            "board_updated",
-            (
-                tile:
-                    | { Tile: { x: number; y: number; state: number } }
-                    | { Hashmap: Map<string, number> },
-            ) => {
-                // This is {x, y, tile state}
-                console.log(tile);
-                if ("Tile" in tile) {
-                    console.log(tile);
-                    const { x, y, state } = tile.Tile as {
-                        x: number;
-                        y: number;
-                        state: number;
-                    };
+        const { data, error } = await supabase
+            .from("rooms")
+            .select("flags")
+            .eq("id", roomId)
+            .single();
 
-                    if (board) {
-                        board[x][y] = state;
-                    }
-                } else {
-                    // The ids are just "x,y" and the tile state
-                    for (const [id, state] of new Map<string, number>(
-                        Object.entries(tile.Hashmap),
-                    )) {
-                        const [_x, _y] = id.split(",");
-                        const [x, y] = [Number(_x), Number(_y)];
-
-                        if (!board) return;
-
-                        console.log(`x: ${x}, y: ${y}`);
-                        board[x][y] = state;
-                    }
-                }
-            },
-        );
-
-        socket.on("game_ended", (lost: boolean, player: string) => {
+        if (error) {
             addToast({
                 data: {
-                    title: lost ? "Game Over 💥" : "Game Won 🥳",
-                    description: lost
-                        ? `${player}'s mouse gained sentience and clicked on a mine`
-                        : "Congratulations on your win!",
+                    title: "A database error occured",
+                    description: "Unable to get flag information",
                     color: "red",
                 },
             });
+
+            return;
+        }
+
+        const flags = data.flags;
+        const id = `${x},${y}`;
+
+        flags[id] = flags[id] === undefined ? true : !flags[id];
+        // Just in case the client is out of sync, place the correct information
+        board[x][y] = flags[id] ? FLAGGED_TILE : UNKNOWN_TILE;
+
+        channel.send({
+            type: "broadcast",
+            event: "tileUpdated",
+            payload: {
+                tile: JSON.stringify({
+                    x,
+                    y,
+                    state: flags[id] ? FLAGGED_TILE : UNKNOWN_TILE,
+                }),
+            },
         });
 
-        return () => {
-            socket.disconnect();
-            }; */
+        await supabase
+            .from("rooms")
+            .update({
+                flags,
+            })
+            .eq("id", roomId);
+    }
+
+    onMount(() => {
+        channel
+            .on(
+                "broadcast",
+                {
+                    event: "tileUpdated",
+                },
+                ({ payload }) => {
+                    console.log(payload.tile);
+                    const returned_tile = JSON.parse(payload.tile);
+                    console.log(returned_tile);
+
+                    if (!board) return;
+
+                    if (returned_tile["x"] !== undefined) {
+                        const { x, y, state } = returned_tile;
+
+                        // If a tile is being flagged, make sure it's not in any invalid
+                        // positions
+                        if (
+                            state === FLAGGED_TILE &&
+                            (board[x][y] === UNKNOWN_TILE ||
+                                board[x][y] !== FLAGGED_TILE)
+                        ) {
+                            board[x][y] = state;
+                        } else if (state !== FLAGGED_TILE) {
+                            board[x][y] = state;
+                        }
+                    } else {
+                        for (const [id, state] of new Map(
+                            Object.entries(returned_tile),
+                        )) {
+                            const [_x, _y] = id.split(",");
+                            const [x, y] = [Number(_x), Number(_y)];
+
+                            board[x][y] = state as number;
+                        }
+                    }
+                },
+            )
+            .subscribe();
+
+        return async () => {
+            await supabase.removeChannel(channel);
+        };
     });
 </script>
 

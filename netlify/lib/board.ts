@@ -1,8 +1,8 @@
 export const FLAGGED_TILE = -3;
 export const UNKNOWN_TILE = -2;
-const MINE_TILE = -1;
+export const MINE_TILE = -1;
 const ZERO_TILE = 0;
-const TILE_TO_MINE_RATIO = 6;
+export const TILE_TO_MINE_RATIO = 6;
 
 function getRandomInt(min: number, max: number) {
   const minCeiled = Math.ceil(min);
@@ -136,7 +136,6 @@ export function generateSolvedBoard(
 // Map:
 // Map<"x,y", state>
 export function returnTile(
-  player: string,
   server_board: Array<Array<number>>,
   client_board: Array<Array<number>>,
   row: number,

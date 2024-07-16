@@ -11,22 +11,33 @@ export const handler: Handler = async (event) => {
     return { statusCode: 405, body: "Method Not Allowed" };
   }
 
-  const { roomId, client_board, revealed_tiles } = JSON.parse(
+  const { roomId, client_board, revealed_tiles, tile } = JSON.parse(
     event.body ?? "{}",
   );
 
-  if (!roomId || !client_board || revealed_tiles === undefined) {
+  if (!roomId || !client_board || revealed_tiles === undefined || !tile) {
     return { statusCode: 400, body: "Missing required fields" };
   }
 
   try {
-    await supabase
-      .from("rooms")
-      .update({
-        client_board,
-        revealed_tiles,
-      })
-      .eq("id", roomId);
+    const channel = supabase.channel(`room:${roomId}:tile`);
+
+    channel.send({
+      type: "broadcast",
+      event: "tileUpdated",
+      payload: { tile },
+    });
+
+    await Promise.all([
+      supabase
+        .from("rooms")
+        .update({
+          client_board,
+          revealed_tiles,
+        })
+        .eq("id", roomId),
+      supabase.removeChannel(channel),
+    ]);
 
     return { statusCode: 200, body: "Update successful" };
   } catch (error) {

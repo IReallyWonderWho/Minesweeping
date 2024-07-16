@@ -55,7 +55,6 @@
     on:contextmenu|preventDefault={flag}
     on:click|preventDefault={click}
 >
-    <!--Temporary icon-->
     {#if flagged}
         <Icon name="flag" height="22.875px" width="25.5px" />
     {/if}

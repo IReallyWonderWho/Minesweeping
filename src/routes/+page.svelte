@@ -6,18 +6,6 @@
     import { encode } from "$lib/utility";
 
     let roomId: string = "";
-
-    onMount(() => {
-        console.log(encode("hiim69"));
-        fetch("/.netlify/functions/handletiles", {
-            method: "POST",
-            body: JSON.stringify({
-                x: 1,
-                y: 1,
-                roomId: encode("hiim69").toString(),
-            }),
-        });
-    });
 </script>
 
 <main class="h-[100vh] hero">

@@ -1,0 +1,44 @@
+{
+  "version": "3",
+  "remote": {
+    "https://edge.netlify.com/": "fd941d61d88673d5f28aab283fb86fcc50f08a3bc80ee5470498fcfa88c65cfb",
+    "https://edge.netlify.com/bootstrap/config.ts": "0aa0a225d978b89e0e62cbd853701605199e7a84095e55eeb70147faf1a24803",
+    "https://edge.netlify.com/bootstrap/context.ts": "f8392d0bfc4a345f0508157a9ed1a8b0ac832275e5ae6fe9301a8268fbfeb0b5",
+    "https://edge.netlify.com/bootstrap/cookie.ts": "8b0baae708989ca183c6f3b4ab3d029e6abcbc2e43f93edeb0ff447b3bbc3a05",
+    "https://edge.netlify.com/bootstrap/edge_function.ts": "b8253e86aa83c67341f5cfedeba5049d77fbf84dcab7eceff7566b7728ae9b39",
+    "https://edge.netlify.com/bootstrap/globals/types.ts": "a92107bafea2f88f9c7f787575732436abc40e45ccc062c76093096e7c34c84b"
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@melt-ui/pp@^0.3.2",
+        "npm:@melt-ui/svelte@^0.81.0",
+        "npm:@netlify/functions@^2.8.1",
+        "npm:@supabase/supabase-js@^2.44.2",
+        "npm:@sveltejs/adapter-auto@^3.0.0",
+        "npm:@sveltejs/adapter-node@^5.0.1",
+        "npm:@sveltejs/adapter-vercel@^4.0.5",
+        "npm:@sveltejs/kit@^2.0.0",
+        "npm:@sveltejs/vite-plugin-svelte@^3.0.0",
+        "npm:@types/uuid@^9.0.8",
+        "npm:autoprefixer@^10.4.19",
+        "npm:daisyui@^4.12.2",
+        "npm:express@^4.19.2",
+        "npm:gsap@^3.12.5",
+        "npm:postcss@^8.4.38",
+        "npm:rate-limiter-flexible@^5.0.3",
+        "npm:redis@^4.6.14",
+        "npm:socket.io-client@^4.7.5",
+        "npm:socket.io@^4.7.5",
+        "npm:svelte-check@^3.6.0",
+        "npm:svelte@^4.2.7",
+        "npm:tailwindcss@^3.4.3",
+        "npm:tslib@^2.4.1",
+        "npm:typescript@^5.0.0",
+        "npm:uuid@^9.0.1",
+        "npm:vite@^5.0.3",
+        "npm:ws@^8.17.0"
+      ]
+    }
+  }
+}

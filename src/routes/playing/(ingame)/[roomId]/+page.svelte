@@ -16,7 +16,13 @@
     };
 
     const roomId = $page.params["roomId"];
-    const channel = supabase.channel(roomId);
+    const channel = supabase.channel(roomId, {
+        config: {
+            broadcast: {
+                self: true,
+            },
+        },
+    });
 
     // TODO, move mouse logic to cursor when possible
     // If the mouse distance moved is under 10 pixels, it's not worth sending
@@ -67,7 +73,7 @@
         last_call = now;
 
         if (distance >= CHANGE_THRESHOLD) {
-            await channel.send({
+            channel.send({
                 type: "broadcast",
                 event: "mouseUpdate",
                 payload: { x, y, user_id: await user_id },
@@ -117,6 +123,41 @@
             player_positions = player_positions;
         });
 
+        channel.on(
+            "broadcast",
+            {
+                event: "gameOver",
+            },
+            ({ payload }) => {
+                console.log(payload);
+            },
+        );
+
+        const gameOverChannel = supabase.channel(`room:${roomId}`);
+
+        gameOverChannel
+            .on(
+                "broadcast",
+                {
+                    event: "gameOver",
+                },
+                ({ payload }) => {
+                    const won = payload.won;
+                    const player = payload.player;
+
+                    addToast({
+                        data: {
+                            title: won ? "You Won! 🥳" : "Game Over 💥",
+                            description: won
+                                ? "Congratulations, you finished!"
+                                : `${player}'s mouse gained sentience and clicked on a mine`,
+                            color: "red",
+                        },
+                    });
+                },
+            )
+            .subscribe();
+
         domrect = element.getBoundingClientRect();
 
         for (const { nickname, color, user_id } of data["players"]) {
@@ -125,7 +166,6 @@
         }
 
         channel.subscribe((status) => {
-            console.log(status);
             if (status !== "SUBSCRIBED") {
                 addToast({
                     data: {
@@ -140,6 +180,7 @@
 
         return () => {
             supabase.removeChannel(channel);
+            supabase.removeChannel(gameOverChannel);
         };
     });
 </script>
@@ -151,20 +192,36 @@
 >
     {#if roomId && channel}
         <BoardStats time_started={data.time} />
-        <Board
-            bind:element
-            class="col-start-2 relative"
-            {roomId}
-            {channel}
-            board={data.board}
-            on:mousemove={handleMouseMove}
-        >
-            <div slot="players">
-                {#each player_positions as [nickname, { x, y, color }] (nickname)}
-                    <Cursor height="32px" width="32px" {x} {y} {color} />
-                {/each}
-            </div>
-        </Board>
+        {#if data.board}
+            <Board
+                bind:element
+                class="col-start-2 relative"
+                {roomId}
+                {channel}
+                board={data.board}
+                on:mousemove={handleMouseMove}
+            >
+                <div slot="players">
+                    {#each player_positions as [nickname, { x, y, color }] (nickname)}
+                        <Cursor height="32px" width="32px" {x} {y} {color} />
+                    {/each}
+                </div>
+            </Board>
+        {:else}
+            <Board
+                bind:element
+                class="col-start-2 relative"
+                {roomId}
+                {channel}
+                on:mousemove={handleMouseMove}
+            >
+                <div slot="players">
+                    {#each player_positions as [nickname, { x, y, color }] (nickname)}
+                        <Cursor height="32px" width="32px" {x} {y} {color} />
+                    {/each}
+                </div>
+            </Board>
+        {/if}
     {/if}
 
     <PlayerList players={player_positions} />
