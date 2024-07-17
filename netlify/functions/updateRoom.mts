@@ -20,7 +20,7 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const channel = supabase.channel(`room:${roomId}:tile`);
+    const channel = supabase.channel(`tile:${roomId}`);
 
     channel.send({
       type: "broadcast",

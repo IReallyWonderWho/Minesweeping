@@ -1,19 +1,19 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import type { RealtimePostgresUpdatePayload } from "@supabase/supabase-js";
     import Tile from "./Tile.svelte";
     import { supabase } from "$lib/supabaseClient";
     import { addToast } from "./Toaster.svelte";
+    import { flags } from "$lib/stores";
 
     const UNKNOWN_TILE = -2;
     const FLAGGED_TILE = -3;
     const number_of_rows_columns = 12;
 
     export let roomId: string;
-    export let board: Array<Array<number>> = createTempBoard();
+    export let board: Array<Array<number>>;
     export let element: Element;
 
-    const channel = supabase.channel(`room:${roomId}:tile`, {
+    const channel = supabase.channel(`tile:${roomId}`, {
         config: {
             broadcast: {
                 self: true,
@@ -21,25 +21,10 @@
         },
     });
 
-    function createTempBoard() {
-        let real_board = [];
-
-        for (let x = 0; x < number_of_rows_columns; x++) {
-            const row: Array<number> = [];
-            for (let y = 0; y < number_of_rows_columns; y++) {
-                row.push(UNKNOWN_TILE);
-            }
-            real_board.push(row);
-        }
-
-        return real_board;
-    }
-
-    // This should be handled server sided, but due to the poor performance of making database calls
-    // and the unability to cache stuff on serverless functions, this is the best solution
-    // unless this becomes popular enough to justify hosting an actual server
+    let debounce = false;
     async function postTile(x: number, y: number) {
-        if (board && board[x][y] !== UNKNOWN_TILE) return;
+        if (board && board[x][y] !== UNKNOWN_TILE && !debounce) return;
+        debounce = true;
 
         const { data, error } = await supabase.auth.getSession();
 
@@ -52,6 +37,7 @@
                     color: "red",
                 },
             });
+            debounce = false;
 
             return;
         }
@@ -71,6 +57,7 @@
             },
         });
 
+        debounce = false;
         if (response.status === 200) {
             const returned_tile = await response.json();
 
@@ -101,34 +88,25 @@
         )
             return;
 
-        // This may be wrong as the client may have slightly different information
-        board[x][y] =
-            board[x][y] === FLAGGED_TILE ? UNKNOWN_TILE : FLAGGED_TILE;
-
-        const { data, error } = await supabase
-            .from("rooms")
-            .select("flags")
-            .eq("id", roomId)
-            .single();
-
-        if (error) {
-            addToast({
-                data: {
-                    title: "A database error occured",
-                    description: "Unable to get flag information",
-                    color: "red",
-                },
-            });
-
-            return;
-        }
-
-        const flags = data.flags;
         const id = `${x},${y}`;
 
-        flags[id] = flags[id] === undefined ? true : !flags[id];
-        // Just in case the client is out of sync, place the correct information
-        board[x][y] = flags[id] ? FLAGGED_TILE : UNKNOWN_TILE;
+        // Ok here me out, the logic should go like this, if tile isn't found, that means
+        // it isn't flagged, so then we flag it by setting it to true
+        // But if it was already flagged, it would exist as true and we can unflag it by setting
+        // it to undefined which also has the benefit that the database has less data to keep track of
+        const past_tile = $flags.get(id);
+
+        if (past_tile) {
+            $flags.delete(id);
+        } else {
+            $flags.set(id, true);
+        }
+
+        const new_tile = $flags.get(id);
+
+        board[x][y] = new_tile ? FLAGGED_TILE : UNKNOWN_TILE;
+
+        $flags = $flags;
 
         channel.send({
             type: "broadcast",
@@ -137,7 +115,7 @@
                 tile: JSON.stringify({
                     x,
                     y,
-                    state: flags[id] ? FLAGGED_TILE : UNKNOWN_TILE,
+                    state: new_tile ? FLAGGED_TILE : UNKNOWN_TILE,
                 }),
             },
         });
@@ -145,7 +123,7 @@
         await supabase
             .from("rooms")
             .update({
-                flags,
+                flags: Object.fromEntries($flags),
             })
             .eq("id", roomId);
     }
@@ -158,9 +136,7 @@
                     event: "tileUpdated",
                 },
                 ({ payload }) => {
-                    console.log(payload.tile);
                     const returned_tile = JSON.parse(payload.tile);
-                    console.log(returned_tile);
 
                     if (!board) return;
 
@@ -174,8 +150,16 @@
                             (board[x][y] === UNKNOWN_TILE ||
                                 board[x][y] !== FLAGGED_TILE)
                         ) {
+                            $flags.set(`${x},${y}`, true);
+                            $flags = $flags;
+
                             board[x][y] = state;
                         } else if (state !== FLAGGED_TILE) {
+                            if (board[x][y] === FLAGGED_TILE) {
+                                $flags.delete(`${x},${y}`);
+                                $flags = $flags;
+                            }
+
                             board[x][y] = state;
                         }
                     } else {
@@ -191,6 +175,13 @@
                 },
             )
             .subscribe();
+
+        for (const [id, state] of $flags) {
+            const [_x, _y] = id.split(",");
+            const [x, y] = [Number(_x), Number(_y)];
+
+            board[x][y] = FLAGGED_TILE;
+        }
 
         return async () => {
             await supabase.removeChannel(channel);

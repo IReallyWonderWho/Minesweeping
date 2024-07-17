@@ -5,26 +5,14 @@ import { supabase } from "$lib/supabaseClient";
 export const ssr = false;
 
 // TODO secure room_players with RLS soon
-async function getClientBoard(roomId: number) {
+async function getData(roomId: number) {
   const { data, error } = await supabase
     .from("rooms")
-    .select("client_board")
+    .select("client_board, created_at, flags")
     .eq("id", roomId)
     .single();
 
-  console.log(data);
-  console.log(error);
-
-  return data ? data.client_board : undefined;
-}
-
-async function getAllPlayers(roomId: number) {
-  const { data } = await supabase
-    .from("room_players")
-    .select("room_id, nickname, color, user_id")
-    .eq("room_id", roomId);
-
-  return data;
+  return !error ? data : undefined;
 }
 
 export const load: PageServerLoad = async ({ params }) => {
@@ -37,14 +25,11 @@ export const load: PageServerLoad = async ({ params }) => {
 
   if (error) throw redirect(303, "/");
 
-  const client_board = await getClientBoard(room_id);
-  const players = await getAllPlayers(room_id);
-
-  // const time = await getTime(roomId);
+  const room = await getData(room_id);
 
   return {
-    board: client_board,
-    players: players ? Array.from(players) : undefined,
-    time: 0,
+    board: room?.client_board,
+    time: room?.created_at,
+    flags: room?.flags,
   };
 };

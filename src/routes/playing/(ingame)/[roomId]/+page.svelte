@@ -7,26 +7,29 @@
     import PlayerList from "$lib/components/PlayerList.svelte";
     import BoardStats from "$lib/components/BoardStats.svelte";
     import { supabase } from "$lib/supabaseClient";
-    import type { RealtimePostgresInsertPayload } from "@supabase/supabase-js";
+    import { flags } from "$lib/stores";
+
+    const UNKNOWN_TILE = -2;
 
     export let data: {
         board: Array<Array<number>> | undefined;
-        players: Array<{ nickname: string; color: string; user_id: string }>;
-        time: number | undefined;
+        time: string | undefined;
+        flags:
+            | {
+                  [key: string]: boolean;
+              }
+            | undefined;
     };
 
     const roomId = $page.params["roomId"];
-    const channel = supabase.channel(roomId, {
+    const roomChannel = supabase.channel(`room:${roomId}`, {
         config: {
-            broadcast: {
-                self: true,
-            },
+            presence: { key: roomId },
         },
     });
 
-    // TODO, move mouse logic to cursor when possible
     // If the mouse distance moved is under 10 pixels, it's not worth sending
-    // an update to the server
+    // an update
     const CHANGE_THRESHOLD = 10;
     // Approximately 15 FPS
     const UPDATE_FPS = 66.667;
@@ -45,6 +48,7 @@
         { nickname: string; x: number; y: number; color: string }
     > = new Map();
 
+    // This keeps the cursor inside the board even when the window size changes
     function windowResized() {
         domrect = element.getBoundingClientRect();
     }
@@ -73,7 +77,7 @@
         last_call = now;
 
         if (distance >= CHANGE_THRESHOLD) {
-            channel.send({
+            roomChannel.send({
                 type: "broadcast",
                 event: "mouseUpdate",
                 payload: { x, y, user_id: await user_id },
@@ -81,61 +85,41 @@
         }
     }
 
+    function createTempBoard() {
+        let real_board = [];
+
+        for (let x = 0; x < 12; x++) {
+            const row: Array<number> = [];
+            for (let y = 0; y < 12; y++) {
+                row.push(UNKNOWN_TILE);
+            }
+            real_board.push(row);
+        }
+
+        return real_board;
+    }
+
+    // Keep this outside the mount, so board can use it after mounting
+    $flags = new Map(Object.entries(data.flags ?? {}));
+
     onMount(() => {
-        channel.on(
-            "postgres_changes",
-            {
-                event: "INSERT",
-                schema: "public",
-                table: "room_players",
-                filter: `room_id=eq.${roomId}`,
-            },
-            (
-                payload: RealtimePostgresInsertPayload<{
-                    user_id: string;
-                    nickname: string;
-                    color: string;
-                }>,
-            ) => {
-                player_positions.set(payload.new.user_id, {
-                    x: 0,
-                    y: 0,
-                    color: payload.new.color,
-                    nickname: payload.new.nickname,
+        // Set up database connections && presence
+        roomChannel
+            .on("broadcast", { event: "mouseUpdate" }, ({ payload }) => {
+                const data = player_positions.get(payload.user_id);
+
+                if (!data) return;
+
+                const { color, nickname } = data;
+
+                player_positions.set(payload.user_id, {
+                    x: payload.x,
+                    y: payload.y,
+                    color,
+                    nickname,
                 });
                 player_positions = player_positions;
-            },
-        );
-
-        channel.on("broadcast", { event: "mouseUpdate" }, ({ payload }) => {
-            const data = player_positions.get(payload.user_id);
-
-            if (!data) return;
-
-            const { color, nickname } = data;
-
-            player_positions.set(payload.user_id, {
-                x: payload.x,
-                y: payload.y,
-                color,
-                nickname,
-            });
-            player_positions = player_positions;
-        });
-
-        channel.on(
-            "broadcast",
-            {
-                event: "gameOver",
-            },
-            ({ payload }) => {
-                console.log(payload);
-            },
-        );
-
-        const gameOverChannel = supabase.channel(`room:${roomId}`);
-
-        gameOverChannel
+            })
             .on(
                 "broadcast",
                 {
@@ -156,31 +140,68 @@
                     });
                 },
             )
-            .subscribe();
+            .on("presence", { event: "sync" }, () => {
+                const newState = roomChannel.presenceState()[
+                    roomId
+                ] as unknown as Array<{
+                    user: string;
+                    nickname: string;
+                    color: string;
+                }>;
+                const players = new Map();
+
+                for (const { user, nickname, color } of newState ?? []) {
+                    players.set(user, {
+                        x: 0,
+                        y: 0,
+                        nickname,
+                        color,
+                    });
+                }
+
+                player_positions = players;
+            })
+            .on("presence", { event: "join" }, async ({ newPresences }) => {
+                const { user, nickname, color } = newPresences[0];
+
+                player_positions.set(user, {
+                    x: 0,
+                    y: 0,
+                    nickname,
+                    color,
+                });
+                player_positions = player_positions;
+            })
+            .on("presence", { event: "leave" }, async ({ leftPresences }) => {
+                const { user } = leftPresences[0];
+
+                player_positions.delete(user);
+                player_positions = player_positions;
+            })
+            .subscribe(async (status) => {
+                if (status !== "SUBSCRIBED") return;
+
+                const { data, error } = await supabase
+                    .from("room_players")
+                    .select("nickname, color")
+                    .eq("user_id", await user_id)
+                    .limit(1);
+
+                if (error) return;
+
+                const { nickname, color } = data[0];
+
+                roomChannel.track({
+                    nickname,
+                    color,
+                    user: await user_id,
+                });
+            });
 
         domrect = element.getBoundingClientRect();
 
-        for (const { nickname, color, user_id } of data["players"]) {
-            player_positions.set(user_id, { x: 0, y: 0, color, nickname });
-            player_positions = player_positions;
-        }
-
-        channel.subscribe((status) => {
-            if (status !== "SUBSCRIBED") {
-                addToast({
-                    data: {
-                        title: "Unable to connect",
-                        description: "Unable to join room channel",
-                        color: "red",
-                    },
-                });
-                return;
-            }
-        });
-
         return () => {
-            supabase.removeChannel(channel);
-            supabase.removeChannel(gameOverChannel);
+            supabase.removeChannel(roomChannel);
         };
     });
 </script>
@@ -188,40 +209,40 @@
 <svelte:window on:resize={windowResized} />
 
 <main
-    class="h-[100vh] grid grid-cols-3 items-center justify-items-center overflow-hidden"
+    class="h-[100vh] grid grid-cols-3 items-center justify-items-center overflow-hidden relative"
 >
-    {#if roomId && channel}
-        <BoardStats time_started={data.time} />
-        {#if data.board}
-            <Board
-                bind:element
-                class="col-start-2 relative"
-                {roomId}
-                {channel}
-                board={data.board}
-                on:mousemove={handleMouseMove}
-            >
-                <div slot="players">
-                    {#each player_positions as [nickname, { x, y, color }] (nickname)}
-                        <Cursor height="32px" width="32px" {x} {y} {color} />
-                    {/each}
-                </div>
-            </Board>
-        {:else}
-            <Board
-                bind:element
-                class="col-start-2 relative"
-                {roomId}
-                {channel}
-                on:mousemove={handleMouseMove}
-            >
-                <div slot="players">
-                    {#each player_positions as [nickname, { x, y, color }] (nickname)}
-                        <Cursor height="32px" width="32px" {x} {y} {color} />
-                    {/each}
-                </div>
-            </Board>
-        {/if}
+    {#if roomId}
+        <!--If the board isn't created yet, make a temporary one just so the code works lol-->
+        <!--This doesn't take into possibility different screen sizes, i'll deal with that later-->
+        <BoardStats
+            class="top-20 absolute text-center"
+            time_started={data.time}
+            board={data.board ?? createTempBoard()}
+        />
+        <Board
+            bind:element
+            class="col-start-2 relative"
+            {roomId}
+            board={data.board ?? createTempBoard()}
+            on:mousemove={handleMouseMove}
+        >
+            <div slot="players">
+                {#each player_positions as [player_id, { x, y, color }] (player_id)}
+                    {#await user_id then id}
+                        <!--Don't let the users see their own cursor-->
+                        {#if id !== player_id}
+                            <Cursor
+                                height="32px"
+                                width="32px"
+                                {x}
+                                {y}
+                                {color}
+                            />
+                        {/if}
+                    {/await}
+                {/each}
+            </div>
+        </Board>
     {/if}
 
     <PlayerList players={player_positions} />

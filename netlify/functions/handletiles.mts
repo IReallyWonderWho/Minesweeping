@@ -116,7 +116,10 @@ export const handler: Handler = async (event, context) => {
   const total_tiles = room.client_board.length ** 2;
   const mine_tiles = total_tiles / TILE_TO_MINE_RATIO;
   const win_tiles = total_tiles - mine_tiles;
-  const won = room.number_of_revealed_tiles + increment_by >= win_tiles;
+  const won =
+    room.number_of_revealed_tiles + increment_by >= win_tiles &&
+    "x" in return_tile &&
+    return_tile.state !== MINE_TILE;
 
   const baseUrl = process.env.URL || "http://localhost:8888";
 
