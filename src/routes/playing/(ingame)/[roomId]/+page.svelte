@@ -8,6 +8,7 @@
     import BoardStats from "$lib/components/BoardStats.svelte";
     import { supabase } from "$lib/supabaseClient";
     import { flags } from "$lib/stores";
+    import { clamp } from "$lib/utility";
 
     const UNKNOWN_TILE = -2;
 
@@ -51,10 +52,6 @@
     // This keeps the cursor inside the board even when the window size changes
     function windowResized() {
         domrect = element.getBoundingClientRect();
-    }
-
-    function clamp(num: number, min: number, max: number) {
-        return Math.min(Math.max(num, min), max);
     }
 
     async function handleMouseMove(event: MouseEvent) {

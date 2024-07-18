@@ -6,6 +6,14 @@ export function getRandomInt(min: number, max: number) {
   return Math.floor(Math.random() * (maxFloored - minCeiled) + minCeiled); // The maximum is exclusive and the minimum is inclusive
 }
 
+export function getRandom(min: number, max: number) {
+  return Math.random() * (max - min + 1) + min;
+}
+
+export function clamp(num: number, min: number, max: number) {
+  return Math.min(Math.max(num, min), max);
+}
+
 export function getRandomHSL() {
   const H = getRandomInt(1, 360);
   const S = getRandomInt(30, 100);

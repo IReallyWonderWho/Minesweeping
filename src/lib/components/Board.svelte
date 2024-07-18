@@ -147,8 +147,7 @@
                         // positions
                         if (
                             state === FLAGGED_TILE &&
-                            (board[x][y] === UNKNOWN_TILE ||
-                                board[x][y] !== FLAGGED_TILE)
+                            board[x][y] === UNKNOWN_TILE
                         ) {
                             $flags.set(`${x},${y}`, true);
                             $flags = $flags;
@@ -176,7 +175,7 @@
             )
             .subscribe();
 
-        for (const [id, state] of $flags) {
+        for (const [id] of $flags) {
             const [_x, _y] = id.split(",");
             const [x, y] = [Number(_x), Number(_y)];
 
