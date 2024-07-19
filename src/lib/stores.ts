@@ -3,4 +3,6 @@ import { supabase } from "./supabaseClient";
 
 export const flags = writable<Map<string, boolean>>(new Map());
 
-export const confetti = writable<number>(25);
+export const confetti = writable<boolean>();
+
+export const windowRect = writable<DOMRect | undefined>();

@@ -10,9 +10,10 @@
     export let rotation: number;
     export let lifetime: number;
 
-    $: transparency = 1 - clamp(lifetime, 0, 1);
+    $: transparency = 0 + clamp(lifetime, 0, 1);
 </script>
 
 <div
-    style="left: {x}px; top: {y}px; rotate: {rotation}deg; opacity: {transparency}; color: ${color}; height: {width}; width: {length}"
+    class="absolute"
+    style="left: {x}px; top: {y}px; rotate: {rotation}deg; background-color: {color}; opacity: {transparency}; height: {width}px; width: {length}px"
 ></div>

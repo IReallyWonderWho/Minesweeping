@@ -21,10 +21,8 @@
         },
     });
 
-    let debounce = false;
     async function postTile(x: number, y: number) {
-        if (board && board[x][y] !== UNKNOWN_TILE && !debounce) return;
-        debounce = true;
+        if (board && board[x][y] !== UNKNOWN_TILE) return;
 
         const { data, error } = await supabase.auth.getSession();
 
@@ -37,7 +35,6 @@
                     color: "red",
                 },
             });
-            debounce = false;
 
             return;
         }
@@ -57,7 +54,6 @@
             },
         });
 
-        debounce = false;
         if (response.status === 200) {
             const returned_tile = await response.json();
 

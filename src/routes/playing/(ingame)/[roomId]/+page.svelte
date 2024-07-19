@@ -6,8 +6,9 @@
     import { addToast } from "$lib/components/Toaster.svelte";
     import PlayerList from "$lib/components/PlayerList.svelte";
     import BoardStats from "$lib/components/BoardStats.svelte";
+    import ConfettiStage from "$lib/components/ConfettiStage.svelte";
     import { supabase } from "$lib/supabaseClient";
-    import { flags } from "$lib/stores";
+    import { flags, confetti, windowRect } from "$lib/stores";
     import { clamp } from "$lib/utility";
 
     const UNKNOWN_TILE = -2;
@@ -41,7 +42,6 @@
     let last_call = Date.now();
 
     let element: any;
-    let domrect: DOMRect | undefined;
 
     // User id: { x, y, color, nickname }
     let player_positions: Map<
@@ -51,17 +51,17 @@
 
     // This keeps the cursor inside the board even when the window size changes
     function windowResized() {
-        domrect = element.getBoundingClientRect();
+        $windowRect = element.getBoundingClientRect();
     }
 
     async function handleMouseMove(event: MouseEvent) {
         const now = Date.now();
 
         if (now - last_call < UPDATE_FPS) return;
-        if (!domrect) return;
+        if (!$windowRect) return;
 
         const { pageX, pageY } = event;
-        const { top, right, bottom, left } = domrect;
+        const { top, right, bottom, left } = $windowRect;
         const [x2, y2] = [
             clamp(pageX - left, 0, right - left),
             clamp(pageY - top, 0, bottom - top),
@@ -101,6 +101,7 @@
 
     onMount(() => {
         // Set up database connections && presence
+        // This is really ugly but i'm too lazy to change it for now
         roomChannel
             .on("broadcast", { event: "mouseUpdate" }, ({ payload }) => {
                 const data = player_positions.get(payload.user_id);
@@ -135,6 +136,10 @@
                             color: "red",
                         },
                     });
+
+                    if (won) {
+                        $confetti = !$confetti;
+                    }
                 },
             )
             .on("presence", { event: "sync" }, () => {
@@ -195,7 +200,7 @@
                 });
             });
 
-        domrect = element.getBoundingClientRect();
+        $windowRect = element.getBoundingClientRect();
 
         return () => {
             supabase.removeChannel(roomChannel);
@@ -208,6 +213,7 @@
 <main
     class="h-[100vh] grid grid-cols-3 items-center justify-items-center overflow-hidden relative"
 >
+    <ConfettiStage />
     {#if roomId}
         <!--If the board isn't created yet, make a temporary one just so the code works lol-->
         <!--This doesn't take into possibility different screen sizes, i'll deal with that later-->

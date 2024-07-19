@@ -3,7 +3,7 @@
     import { onMount } from "svelte";
     import { getRandom, getRandomInt } from "$lib/utility";
     import Confetti from "./Confetti.svelte";
-    import { confetti } from "$lib/stores";
+    import { confetti, windowRect } from "$lib/stores";
     // A translated version of Fusion Obby's Confetti with some differences
 
     // Since Javascript doesn't have an inbuilt Vector2 type, we'll define our own custom one
@@ -29,7 +29,6 @@
             return Math.sqrt(this.x ** 2 + this.y ** 2);
         }
 
-        // Return a normalized vector
         unit() {
             const magnitude = this.magnitude();
 
@@ -39,13 +38,13 @@
 
     // firing constants
     const FUZZ = 0.4;
-    const FORCE = 30;
-    const FORCE_FUZZ = 20;
+    const FORCE = 800;
+    const FORCE_FUZZ = 400;
 
-    // physics constants
-    const DRAG = 0.95;
-    const GRAVITY = 0.2;
-    const ROTATE_SPEED = 1;
+    // physics constants (adjusted for deltatime hopefully)
+    const DRAG = 0.35;
+    const GRAVITY = 150;
+    const ROTATE_SPEED = 60;
 
     // we save particles into the keys of this table, not the values
     // this means each particle is it's own unique, stable key
@@ -95,9 +94,19 @@
         particleSet = particleSet;
     }
 
-    function updateConfetti(delta: number) {
+    let previousTimestamp: number | undefined;
+
+    function updateConfetti(timestamp: number) {
+        if (previousTimestamp === undefined) {
+            previousTimestamp = timestamp;
+            animationId = requestAnimationFrame(updateConfetti);
+            return;
+        }
+
+        const deltaTime = (timestamp - previousTimestamp) * 0.001; // Convert to seconds
+
         for (const [particle] of particleSet) {
-            const newLife = particle.life - delta;
+            const newLife = particle.life - deltaTime;
 
             if (newLife <= 0) {
                 particleSet.delete(particle);
@@ -106,38 +115,50 @@
                 particle.life = newLife;
             }
 
-            particle.x += particle.velocityX;
-            particle.y += particle.velocityY;
-            particle.velocityX *= DRAG;
-            particle.velocityY *= DRAG;
-            particle.velocityY += GRAVITY;
-
-            particle.rotation += ROTATE_SPEED;
+            particle.x += particle.velocityX * deltaTime;
+            particle.y += particle.velocityY * deltaTime;
+            particle.velocityX *= Math.pow(DRAG, deltaTime);
+            particle.velocityY *= Math.pow(DRAG, deltaTime);
+            particle.velocityY += GRAVITY * deltaTime;
+            particle.rotation += ROTATE_SPEED * deltaTime;
         }
 
         particleSet = particleSet;
+        previousTimestamp = timestamp;
 
         if (particleSet.size > 0) {
             animationId = requestAnimationFrame(updateConfetti);
+        } else {
+            previousTimestamp = undefined; // Reset for next animation cycle
         }
     }
 
-    // Instead of firing confetti from an event, it's changed to being fired from
-    // when the svelte store changes
-    $: {
-        updateConfetti($confetti);
-    }
-
     onMount(() => {
-        animationId = requestAnimationFrame(updateConfetti);
+        // Instead of firing confetti from an event, it's changed to being fired from
+        // when the svelte store changes
+        const unsubscribe = confetti.subscribe(() => {
+            if (!$windowRect) return;
+            const amount = 100;
+
+            const bottomLeft = new Vector2(0, window.innerHeight);
+            const bottomRight = new Vector2(
+                window.innerWidth,
+                window.innerHeight,
+            );
+
+            fireConfetti(amount, bottomLeft, new Vector2(1, -1));
+            fireConfetti(amount, bottomRight, new Vector2(-1, -1));
+            animationId = requestAnimationFrame(updateConfetti);
+        });
 
         return () => {
             cancelAnimationFrame(animationId);
+            unsubscribe();
         };
     });
 </script>
 
-<div class="h-[100vh] w-[100vw] absolute">
+<div class="h-[100vh] w-[100vw] absolute z-10 pointer-events-none">
     <!--Use the particle property as the stable key-->
     {#each particleSet as [particle] (particle)}
         <Confetti
