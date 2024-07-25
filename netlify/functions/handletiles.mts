@@ -42,17 +42,14 @@ export const handler: Handler = async (event, context) => {
     };
 
   let room = cache.get(roomId);
-  const user = room?.players.get(Session);
+  let user = room?.players.get(Session);
   let headers: any;
 
-  if (!Session || !room?.players.get(Session)) {
+  if (!Session || !user) {
     console.log("Validating user");
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser(accessToken);
+    const { data: userData, error } = await supabase.auth.getUser(accessToken);
 
-    if (error || !user) {
+    if (error || !userData.user) {
       return {
         statusCode: 401,
         body: JSON.stringify({ error: "Invalid token" }),
@@ -60,7 +57,7 @@ export const handler: Handler = async (event, context) => {
     }
 
     Session = uuidv4();
-    room?.players.set(Session, user);
+    room?.players.set(Session, userData.user);
     headers = {
       "Set-Cookie": cookie.serialize("Session", Session, {
         httpOnly: true,
@@ -68,6 +65,8 @@ export const handler: Handler = async (event, context) => {
         path: "/",
       }),
     };
+
+    user = userData.user;
   }
 
   if (!room) {
@@ -150,16 +149,20 @@ export const handler: Handler = async (event, context) => {
   if (won || ("x" in return_tile && return_tile.state === MINE_TILE)) {
     const channel = supabase.channel(`room:${roomId}`);
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("room_players")
       .select("nickname")
       .eq("user_id", user?.id)
       .single();
 
+    console.log(user?.id);
+    console.log(data);
+    console.log(error);
+
     channel.send({
       type: "broadcast",
       event: "gameOver",
-      payload: { won, player: data?.nickname },
+      payload: { won, player: data?.nickname, board: room.server_board },
     });
 
     await supabase.removeChannel(channel);

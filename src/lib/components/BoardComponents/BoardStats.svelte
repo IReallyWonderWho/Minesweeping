@@ -50,12 +50,12 @@
 
 <div class={`${$$props["class"]}`}>
     <div class="flex flex-row">
-        <span class="flex flex-row">
-            <Icon name="flag" />
+        <span class="flex flex-row mr-3">
+            <Icon class="mr-1" name="flag" />
             {number_of_flags - $flags.size}
         </span>
         <span class="flex flex-row">
-            <Icon name="flag" />
+            <Icon class="mr-1" name="clock" />
             {prettyPrintTime(time)}
         </span>
     </div>

@@ -21,15 +21,31 @@ export const load: PageServerLoad = async ({ params }) => {
   if (!roomId || typeof roomId !== "string") throw redirect(307, "/");
   let room_id = Number(roomId);
 
-  const { error } = await supabase.auth.getUser();
+  const user = new Promise(async (resolve, reject) => {
+    const { data, error } = await supabase.auth.getUser();
 
-  if (error) throw redirect(303, "/");
+    if (error) return reject("User not found");
 
-  const room = await getData(room_id);
+    const { data: playerData, error: playerError } = await supabase
+      .from("room_players")
+      .select("nickname, color")
+      .eq("user_id", data.user.id)
+      .single();
+
+    if (playerError) return reject("User info not found");
+
+    const returnData = {
+      playerData,
+      id: data.user.id,
+    };
+
+    resolve(returnData);
+  });
+
+  const room = getData(room_id);
 
   return {
-    board: room?.client_board,
-    time: room?.created_at,
-    flags: room?.flags,
+    roomPromise: room,
+    userPromise: user,
   };
 };

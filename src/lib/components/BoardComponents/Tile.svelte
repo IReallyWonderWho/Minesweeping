@@ -8,6 +8,7 @@
     export let position: { x: number; y: number };
     export let state: number | undefined = -2;
 
+    const MINE_TILE = -1;
     const UNKNOWN_TILE = -2;
     const FLAGGED_TILE = -3;
 
@@ -34,12 +35,13 @@
             : is_darkened
               ? `bg-[#d9ccb6]`
               : `bg-[#ede4d5]`;
-    $: flagged = state === FLAGGED_TILE;
+    $: icon =
+        state === FLAGGED_TILE ? "flag" : state === MINE_TILE ? "mine" : "none";
     $: text_color =
         state && state in NUMBER_COLORS ? NUMBER_COLORS[state as 1] : "#FFFFFF";
 
     async function click() {
-        if (flagged) return;
+        if (icon === "flag") return;
 
         postTile(position.x, position.y);
     }
@@ -55,11 +57,13 @@
     on:contextmenu|preventDefault={flag}
     on:click|preventDefault={click}
 >
-    {#if flagged}
+    {#if icon === "flag"}
         <Icon name="flag" height="22.875px" width="25.5px" />
+    {:else if icon === "mine"}
+        <Icon name="mine" height="22.875px" width="25.5px" />
     {/if}
     <!--Show the number-->
-    {#if state && state !== UNKNOWN_TILE && state !== FLAGGED_TILE}
+    {#if state && state > 0}
         {state}
     {/if}
 </button>

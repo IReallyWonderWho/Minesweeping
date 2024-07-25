@@ -7,11 +7,14 @@
 
     const UNKNOWN_TILE = -2;
     const FLAGGED_TILE = -3;
+    const MINE_TILE = -1;
     const number_of_rows_columns = 12;
 
+    export let initalFlags: Map<string, boolean>;
     export let roomId: string;
     export let board: Array<Array<number>>;
     export let element: Element;
+    export let correctBoard: Array<Array<number>> | undefined;
 
     const channel = supabase.channel(`tile:${roomId}`, {
         config: {
@@ -20,6 +23,15 @@
             },
         },
     });
+
+    $: {
+        for (const [id] of initalFlags) {
+            const [_x, _y] = id.split(",");
+            const [x, y] = [Number(_x), Number(_y)];
+
+            board[x][y] = FLAGGED_TILE;
+        }
+    }
 
     async function postTile(x: number, y: number) {
         if (board && board[x][y] !== UNKNOWN_TILE) return;
@@ -124,6 +136,27 @@
             .eq("id", roomId);
     }
 
+    async function gameEnded(correctBoard: Array<Array<number>> | undefined) {
+        if (!correctBoard) return;
+
+        for (let x = 0; x < number_of_rows_columns; x++) {
+            for (let y = 0; y < number_of_rows_columns; y++) {
+                const correctTile = correctBoard[x][y];
+                const originalTile = board[x][y];
+
+                if (correctTile === MINE_TILE) {
+                    if (originalTile !== FLAGGED_TILE) {
+                        board[x][y] = MINE_TILE;
+                    }
+                }
+            }
+        }
+    }
+
+    $: {
+        gameEnded(correctBoard);
+    }
+
     onMount(() => {
         channel
             .on(
@@ -148,7 +181,7 @@
                             $flags.set(`${x},${y}`, true);
                             $flags = $flags;
 
-                            board[x][y] = state;
+                            board[x][y] = FLAGGED_TILE;
                         } else if (state !== FLAGGED_TILE) {
                             if (board[x][y] === FLAGGED_TILE) {
                                 $flags.delete(`${x},${y}`);
@@ -170,13 +203,6 @@
                 },
             )
             .subscribe();
-
-        for (const [id] of $flags) {
-            const [_x, _y] = id.split(",");
-            const [x, y] = [Number(_x), Number(_y)];
-
-            board[x][y] = FLAGGED_TILE;
-        }
 
         return async () => {
             await supabase.removeChannel(channel);

@@ -4,6 +4,7 @@
     // @ts-ignore
     import { Flip } from "gsap/dist/Flip";
     import { tick } from "svelte";
+    import { windowRect } from "$lib/stores";
 
     gsap.registerPlugin(Flip);
 
@@ -16,7 +17,11 @@
     let left: string;
     let top: string;
 
-    async function flip(x: number, y: number) {
+    async function flip(scaled_x: number, scaled_y: number) {
+        const [x, y] = [
+            scaled_x * $windowRect!.width,
+            scaled_y * $windowRect!.height,
+        ];
         const cursor = Flip.getState(".flip");
 
         left = `${x - 16}px`;

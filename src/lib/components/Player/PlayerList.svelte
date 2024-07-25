@@ -37,7 +37,6 @@
         const state = Flip.getState(".animate-box");
 
         requestAnimationFrame(() => {
-            console.log(right);
             Flip.from(state, {
                 duration: 0.5,
             });
@@ -98,7 +97,7 @@
             <div use:melt={$collapsibleContent}>
                 <div class="p-4 px-[26px] mr-0" use:melt={$content}>
                     <h3
-                        class="mb-4 text-text-500 font-metropolis font-bold text-base"
+                        class="mb-4 text-neutral-100 font-metropolis font-bold text-base"
                     >
                         Players
                     </h3>
