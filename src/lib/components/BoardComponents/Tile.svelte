@@ -1,5 +1,5 @@
 <script lang="ts">
-    import Icon from "./Icon.svelte";
+    import Icon from "$lib/components/Icon.svelte";
 
     export let postTile: (x: number, y: number) => void;
     export let flagTile: (x: number, y: number) => void;

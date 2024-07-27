@@ -8,7 +8,7 @@ export const ssr = false;
 async function getData(roomId: number) {
   const { data, error } = await supabase
     .from("rooms")
-    .select("client_board, created_at, flags")
+    .select("client_board, created_at, flags, started, rows_columns")
     .eq("id", roomId)
     .single();
 
@@ -17,6 +17,7 @@ async function getData(roomId: number) {
 
 export const load: PageServerLoad = async ({ params }) => {
   const roomId = params["roomId"];
+  console.log("what");
 
   if (!roomId || typeof roomId !== "string") throw redirect(307, "/");
   let room_id = Number(roomId);
@@ -43,6 +44,7 @@ export const load: PageServerLoad = async ({ params }) => {
   });
 
   const room = getData(room_id);
+  console.log("MUHAHAHA");
 
   return {
     roomPromise: room,

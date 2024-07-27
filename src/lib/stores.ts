@@ -5,6 +5,8 @@ export interface roomData {
     client_board: Array<Array<number>> | undefined;
     created_at: string;
     flags: Map<string, boolean>;
+    started: boolean;
+    rows_columns: number;
   }>;
   userPromise: Promise<{
     playerData: {
@@ -28,6 +30,9 @@ export const players = writable<
   >
 >(new Map());
 
-export const confetti = writable<boolean>();
+export const numberOfRowsColumns = writable([12]);
+export const mineRatio = writable([6]);
+
+export const confetti = writable<[boolean]>([false]);
 
 export const windowRect = writable<DOMRect | undefined>();

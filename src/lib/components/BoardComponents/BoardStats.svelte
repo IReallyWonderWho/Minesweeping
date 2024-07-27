@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import Icon from "./Icon.svelte";
+    import Icon from "$lib/components/Icon.svelte";
     import { flags } from "$lib/stores";
 
     export let time_started: string | undefined;

@@ -16,14 +16,11 @@ export const actions: Actions = {
         error: "Room id must be a string",
       });
     const room_id = encode(roomId);
-    console.log(`ROOM: ${room_id}`);
 
     const room = await roomExists(room_id);
-    console.log(room);
-    console.log(`REDIRECTING TO: ${room_id}`);
 
     return room
-      ? redirect(303, `/playing/${room_id}/nickname`)
+      ? redirect(303, room.started ? `/${room_id}/playing` : `/${room_id}/`)
       : fail(404, {
           error: "Room not found",
         });

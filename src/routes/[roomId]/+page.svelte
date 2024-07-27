@@ -1,10 +1,19 @@
 <script lang="ts">
     import { page } from "$app/stores";
-    import { goto } from "$app/navigation";
+    import { goto, invalidate } from "$app/navigation";
     import { onMount } from "svelte";
     import PlayerList from "$lib/components/Player/LobbyPlayerList.svelte";
     import { supabase } from "$lib/supabaseClient";
-    import { players, type roomData } from "$lib/stores";
+    import {
+        players,
+        numberOfRowsColumns,
+        mineRatio,
+        type roomData,
+    } from "$lib/stores";
+    import Board from "$lib/components/BoardComponents/Board.svelte";
+    import { createTempBoard, UNKNOWN_TILE, MINE_TILE } from "$lib/boardUtils";
+    import BoardSettings from "$lib/components/BoardComponents/BoardSettings.svelte";
+    import { getRandomInt } from "$lib/utility";
 
     export let data: roomData;
 
@@ -14,10 +23,57 @@
             presence: { key: roomId },
         },
     });
-
     const user_id = data.userPromise.then((data) => data.id);
 
+    let board: Array<Array<number>>;
+    let previous_mine_ratio = 0;
+    let previous_size = 0;
+
+    $: {
+        if (
+            $numberOfRowsColumns[0] !== previous_size ||
+            $mineRatio[0] !== previous_mine_ratio
+        ) {
+            const new_board = createTempBoard($numberOfRowsColumns[0]);
+            let amount_of_mines = new_board.length ** 2 / $mineRatio[0];
+
+            previous_mine_ratio = $mineRatio[0];
+            previous_size = $numberOfRowsColumns[0];
+
+            while (amount_of_mines > 0) {
+                const x = getRandomInt(0, $numberOfRowsColumns[0]);
+                const y = getRandomInt(0, $numberOfRowsColumns[0]);
+
+                if (new_board[x][y] === UNKNOWN_TILE) {
+                    new_board[x][y] = MINE_TILE;
+                    amount_of_mines -= 1;
+                }
+            }
+
+            board = new_board;
+        }
+    }
+
+    let element: any;
+
+    async function onStart() {
+        await supabase
+            .from("rooms")
+            .update({
+                started: true,
+                rows_columns: $numberOfRowsColumns[0],
+                mine_ratio: $mineRatio[0],
+            })
+            .eq("id", roomId);
+    }
+
     onMount(() => {
+        data.roomPromise.then((room) => {
+            if (room.started) {
+                goto(`/${roomId}/playing/`);
+            }
+        });
+
         roomChannel
             .on("presence", { event: "sync" }, () => {
                 const newState = roomChannel.presenceState()[
@@ -56,6 +112,21 @@
                 $players.delete(user);
                 $players = $players;
             })
+            .on(
+                "postgres_changes",
+                {
+                    event: "UPDATE",
+                    schema: "public",
+                    table: "rooms",
+                },
+                async (payload) => {
+                    if (payload.new.started) {
+                        await goto(`/${roomId}/playing/`, {
+                            invalidateAll: true,
+                        });
+                    }
+                },
+            )
             .subscribe(async (status) => {
                 if (status !== "SUBSCRIBED") return;
 
@@ -75,6 +146,28 @@
     });
 </script>
 
-<main>
+<main class="flex justify-between h-[100vh]">
+    <div class="flex-1 flex flex-col items-center justify-center">
+        <div class="m-3 text-center">
+            <h2 class="text-primary-900 mb-1 font-metropolis">Room code:</h2>
+            <h1 class="text-primary-300 text-3xl font-bold font-metropolis">
+                XF6 HG7
+            </h1>
+        </div>
+        <BoardSettings />
+        <Board
+            bind:element
+            class="max-h-[400px]"
+            correctBoard={undefined}
+            {board}
+            initalFlags={new Map()}
+            {roomId}
+        />
+        <button
+            on:click={onStart}
+            class="btn btn-circle bg-primary-500 text-primary-900 w-[200px] h-[44px] font-metropolis font-bold text-lg m-5"
+            >Start</button
+        >
+    </div>
     <PlayerList players={$players} />
 </main>

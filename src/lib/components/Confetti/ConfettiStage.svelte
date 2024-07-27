@@ -136,8 +136,8 @@
     onMount(() => {
         // Instead of firing confetti from an event, it's changed to being fired from
         // when the svelte store changes
-        const unsubscribe = confetti.subscribe(() => {
-            if (!$windowRect) return;
+        const unsubscribe = confetti.subscribe((shouldFire) => {
+            if (!$windowRect || !shouldFire[0]) return;
             const amount = 100;
 
             const bottomLeft = new Vector2(0, window.innerHeight);

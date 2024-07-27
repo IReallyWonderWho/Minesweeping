@@ -2,7 +2,6 @@ export const FLAGGED_TILE = -3;
 export const UNKNOWN_TILE = -2;
 export const MINE_TILE = -1;
 const ZERO_TILE = 0;
-export const TILE_TO_MINE_RATIO = 6;
 
 function getRandomInt(min: number, max: number) {
   const minCeiled = Math.ceil(min);
@@ -86,10 +85,11 @@ export function generateSolvedBoard(
   number_of_rows_columns: number,
   safe_row: number,
   safe_column: number,
+  mine_ratio: number = 6,
 ) {
   const server_board: Array<Array<number>> = [];
   const number_of_tiles = number_of_rows_columns ** 2;
-  let number_of_mines = Math.floor(number_of_tiles / TILE_TO_MINE_RATIO);
+  let number_of_mines = Math.floor(number_of_tiles / mine_ratio);
 
   for (let x = 0; x < number_of_rows_columns; x++) {
     const row: Array<number> = [];
@@ -175,14 +175,17 @@ export function returnTile(
 export function didGameEnd(
   board: Array<Array<number>>,
   number_of_revealed_tiles: number,
+  mine_ratio: number,
 ) {
   // Get the height of the board and since it's a square, just square it
   const number_of_tiles = board.length ** 2;
   // Should get us the same number of mines as when we first generated the board
-  const number_of_mines = Math.floor(number_of_tiles / TILE_TO_MINE_RATIO);
+  const number_of_mines = Math.floor(number_of_tiles / mine_ratio);
   // The tiles that should be left when the game is completed;
   const number_of_remaining_tiles = number_of_tiles - number_of_mines;
 
+  console.log(number_of_remaining_tiles);
+  console.log(number_of_revealed_tiles);
   return number_of_remaining_tiles === number_of_revealed_tiles;
 }
 

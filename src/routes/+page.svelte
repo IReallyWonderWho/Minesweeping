@@ -1,9 +1,6 @@
 <script lang="ts">
-    import { onMount } from "svelte";
     import { enhance } from "$app/forms";
-    import { supabase } from "$lib/supabaseClient";
     import Icon from "$lib/components/Icon.svelte";
-    import { encode } from "$lib/utility";
 
     let roomId: string = "";
 </script>

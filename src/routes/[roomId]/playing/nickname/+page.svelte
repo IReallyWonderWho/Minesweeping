@@ -84,7 +84,7 @@
             return;
         }
 
-        goto(`/playing/${roomId}`);
+        goto(`/${roomId}/playing`);
     }
 </script>
 

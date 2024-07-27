@@ -5,7 +5,7 @@ import {
   generateSolvedBoard,
   MINE_TILE,
   returnTile,
-  TILE_TO_MINE_RATIO,
+  didGameEnd,
 } from "../lib/board";
 import cookie from "cookie";
 
@@ -16,6 +16,8 @@ const cache: Map<
     server_board: Array<Array<number>>;
     number_of_revealed_tiles: number;
     players: Map<string, User>;
+    mine_ratio: number;
+    rows_columns: number;
   }
 > = new Map();
 
@@ -24,9 +26,10 @@ const supabase = new SupabaseClient(
   process.env.SUPABASE_PRIVATE_API_KEY ?? "",
 );
 
-export const handler: Handler = async (event, context) => {
+export const handler: Handler = async (event) => {
   const body = JSON.parse(event.body ?? "");
   const accessToken = event.headers.authorization?.split("Bearer ")[1];
+
   let { Session } = cookie.parse(event.headers.cookie ?? "");
 
   const { x, y, roomId } = body;
@@ -46,7 +49,6 @@ export const handler: Handler = async (event, context) => {
   let headers: any;
 
   if (!Session || !user) {
-    console.log("Validating user");
     const { data: userData, error } = await supabase.auth.getUser(accessToken);
 
     if (error || !userData.user) {
@@ -73,7 +75,9 @@ export const handler: Handler = async (event, context) => {
     const [{ data, error }, { data: serverData }] = await Promise.all([
       supabase
         .from("rooms")
-        .select("client_board, revealed_tiles")
+        .select(
+          "client_board, revealed_tiles, rows_columns, mine_ratio, started",
+        )
         .eq("id", roomId)
         .single(),
       supabase
@@ -84,11 +88,17 @@ export const handler: Handler = async (event, context) => {
     ]);
 
     if (error) return { statusCode: 500 };
+    if (!data.started) return { statusCode: 404 };
     let client_board = data.client_board;
     let server_board = serverData?.server_board;
 
     if (!client_board || !server_board) {
-      const [server, client] = generateSolvedBoard(12, x, y);
+      const [server, client] = generateSolvedBoard(
+        data.rows_columns,
+        x,
+        y,
+        data.mine_ratio,
+      );
 
       client_board = client;
       server_board = server;
@@ -104,6 +114,8 @@ export const handler: Handler = async (event, context) => {
       server_board,
       number_of_revealed_tiles: data.revealed_tiles,
       players: new Map(),
+      rows_columns: data.rows_columns,
+      mine_ratio: data.mine_ratio,
     };
 
     cache.set(roomId, room);
@@ -112,14 +124,11 @@ export const handler: Handler = async (event, context) => {
   const return_tile = returnTile(room.server_board, room.client_board, x, y);
   const increment_by = "x" in return_tile ? 1 : return_tile.size;
 
-  const total_tiles = room.client_board.length ** 2;
-  const mine_tiles = total_tiles / TILE_TO_MINE_RATIO;
-  const win_tiles = total_tiles - mine_tiles;
-  const won =
-    room.number_of_revealed_tiles + increment_by >= win_tiles &&
-    "x" in return_tile &&
-    return_tile.state !== MINE_TILE;
-
+  const won = didGameEnd(
+    room.client_board,
+    room.number_of_revealed_tiles + increment_by,
+    room.mine_ratio,
+  );
   const baseUrl = process.env.URL || "http://localhost:8888";
 
   // Instead of updating directly, call another serverless function
@@ -144,6 +153,8 @@ export const handler: Handler = async (event, context) => {
     client_board: room.client_board,
     number_of_revealed_tiles: room.number_of_revealed_tiles + increment_by,
     players: room.players,
+    mine_ratio: room.mine_ratio,
+    rows_columns: room.rows_columns,
   });
 
   if (won || ("x" in return_tile && return_tile.state === MINE_TILE)) {
@@ -155,14 +166,14 @@ export const handler: Handler = async (event, context) => {
       .eq("user_id", user?.id)
       .single();
 
-    console.log(user?.id);
-    console.log(data);
-    console.log(error);
-
     channel.send({
       type: "broadcast",
       event: "gameOver",
-      payload: { won, player: data?.nickname, board: room.server_board },
+      payload: {
+        won: return_tile["state"] === MINE_TILE ? false : won,
+        player: data?.nickname,
+        board: room.server_board,
+      },
     });
 
     await supabase.removeChannel(channel);

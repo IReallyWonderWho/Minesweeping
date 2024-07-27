@@ -2,13 +2,12 @@
     import { onMount } from "svelte";
     import Tile from "./Tile.svelte";
     import { supabase } from "$lib/supabaseClient";
-    import { addToast } from "./Toaster.svelte";
+    import { addToast } from "$lib/components/Toaster.svelte";
     import { flags } from "$lib/stores";
 
     const UNKNOWN_TILE = -2;
     const FLAGGED_TILE = -3;
     const MINE_TILE = -1;
-    const number_of_rows_columns = 12;
 
     export let initalFlags: Map<string, boolean>;
     export let roomId: string;
@@ -23,6 +22,8 @@
             },
         },
     });
+
+    $: boardLength = board.length;
 
     $: {
         for (const [id] of initalFlags) {
@@ -139,8 +140,8 @@
     async function gameEnded(correctBoard: Array<Array<number>> | undefined) {
         if (!correctBoard) return;
 
-        for (let x = 0; x < number_of_rows_columns; x++) {
-            for (let y = 0; y < number_of_rows_columns; y++) {
+        for (let x = 0; x < boardLength; x++) {
+            for (let y = 0; y < boardLength; y++) {
                 const correctTile = correctBoard[x][y];
                 const originalTile = board[x][y];
 
@@ -212,17 +213,18 @@
 
 <div
     bind:this={element}
-    class={`h-[70vh] min-h-80 aspect-square bg-black grid grid-cols-12 grid-rows-12 justify-items-stretch ${$$props.class}`}
+    class={`h-[70vh] min-h-80 aspect-square bg-black grid justify-items-stretch ${$$props.class}`}
+    style="grid-template-columns: repeat({boardLength}, minmax(0, 1fr)); grid-template-rows: repeat({boardLength}, minmax(0, 1fr));"
     on:mousemove
     role="main"
 >
     <!--Row-->
-    {#each { length: number_of_rows_columns } as _, x}
+    {#each { length: boardLength } as _, x}
         <!--Column-->
-        {#each { length: number_of_rows_columns } as _, y}
+        {#each { length: boardLength } as _, y}
             <Tile
                 position={{ x, y }}
-                state={board ? board[x][y] : undefined}
+                state={board ? (board[x] ? board[x][y] : undefined) : undefined}
                 {postTile}
                 {flagTile}
             />

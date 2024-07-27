@@ -11,7 +11,7 @@
     import { supabase } from "$lib/supabaseClient";
     import { flags, confetti, windowRect, type roomData } from "$lib/stores";
     import { clamp } from "$lib/utility";
-    import { UNKNOWN_TILE } from "$lib/sharedExpectations";
+    import { createTempBoard } from "$lib/boardUtils";
 
     export let data: roomData;
 
@@ -28,8 +28,9 @@
     // Approximately 15 FPS
     const UPDATE_FPS = 66.667;
 
-    const user_id = data.userPromise.then((data) => data.id);
-    const temp_board = createTempBoard();
+    const user_id = data.userPromise
+        .then((data) => data.id)
+        .catch(() => goto(`/${roomId}/playing/nickname`));
 
     let previous_position: [number, number] = [0, 0];
     let last_call = Date.now();
@@ -85,22 +86,10 @@
         }
     }
 
-    function createTempBoard() {
-        let real_board = [];
-
-        for (let x = 0; x < 12; x++) {
-            const row: Array<number> = [];
-            for (let y = 0; y < 12; y++) {
-                row.push(UNKNOWN_TILE);
-            }
-            real_board.push(row);
-        }
-
-        return real_board;
-    }
-
     onMount(() => {
         data.roomPromise.then((room) => {
+            console.log(room);
+            if (!room.started) return goto(`/${roomId}`);
             $flags = new Map(Object.entries(room.flags ?? {}));
         });
         // Set up database connections && presence
@@ -143,7 +132,7 @@
                     });
 
                     if (won) {
-                        $confetti = !$confetti;
+                        $confetti = [true];
                     }
                 },
             )
@@ -222,7 +211,7 @@
                 initalFlags={$flags}
                 {roomId}
                 {correctBoard}
-                board={temp_board}
+                board={createTempBoard(12)}
             />
         {:then room}
             <!--If the board isn't created yet, make a temporary one just so the code works lol-->
@@ -230,7 +219,7 @@
             <BoardStats
                 class="top-[11vh] fixed text-center z-10"
                 time_started={room.created_at}
-                board={room.client_board ?? temp_board}
+                board={room.client_board ?? createTempBoard(room.rows_columns)}
             />
             <Board
                 bind:element
@@ -238,7 +227,7 @@
                 {roomId}
                 {correctBoard}
                 initalFlags={$flags}
-                board={room.client_board ?? temp_board}
+                board={room.client_board ?? createTempBoard(room.rows_columns)}
                 on:mousemove={handleMouseMove}
             >
                 <div slot="players">
