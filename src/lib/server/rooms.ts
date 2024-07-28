@@ -1,4 +1,3 @@
-import { getRandomHSL } from "$lib/utility";
 import { supabase } from "$lib/server/supabaseClient";
 
 export async function getBoards(room_id: number) {

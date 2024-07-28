@@ -1,6 +1,6 @@
 <script lang="ts">
     import { page } from "$app/stores";
-    import { goto, invalidate } from "$app/navigation";
+    import { goto } from "$app/navigation";
     import { onMount } from "svelte";
     import PlayerList from "$lib/components/Player/LobbyPlayerList.svelte";
     import { supabase } from "$lib/supabaseClient";
