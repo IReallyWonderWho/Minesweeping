@@ -168,16 +168,6 @@ export const handler: Handler = async (event) => {
       .eq("user_id", user?.id)
       .single();
 
-    channel.send({
-      type: "broadcast",
-      event: "gameOver",
-      payload: {
-        won: return_tile["state"] === MINE_TILE ? false : won,
-        player: data?.nickname,
-        board: room.server_board,
-      },
-    });
-
     fetch(`${baseUrl}/.netlify/functions/cleanupRoom`, {
       method: "POST",
       headers: {
@@ -188,6 +178,16 @@ export const handler: Handler = async (event) => {
       }),
     }).catch((error) => console.error("Failed to send update request:", error));
     cache.delete(roomId);
+
+    await channel.send({
+      type: "broadcast",
+      event: "gameOver",
+      payload: {
+        won: return_tile["state"] === MINE_TILE ? false : won,
+        player: data?.nickname,
+        board: room.server_board,
+      },
+    });
 
     await supabase.removeChannel(channel);
   }

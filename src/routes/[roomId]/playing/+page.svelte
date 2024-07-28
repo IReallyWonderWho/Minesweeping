@@ -117,6 +117,7 @@
                     event: "gameOver",
                 },
                 ({ payload }) => {
+                    console.log(payload);
                     const won = payload.won;
                     const player = payload.player;
 

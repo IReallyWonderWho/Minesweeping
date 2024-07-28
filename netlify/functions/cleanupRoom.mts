@@ -16,7 +16,7 @@ export const handler: Handler = async (event) => {
   if (!roomId) return { statusCode: 400, body: "Missing required fields" };
 
   try {
-    Promise.all([
+    await Promise.all([
       supabase.from("rooms").update({
         client_board: null,
         revealed_tiles: 0,
