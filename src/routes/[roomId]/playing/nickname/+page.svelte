@@ -62,18 +62,22 @@
         }
 
         const user_id = data.user?.id;
-        const { error: joinError } = await supabase
-            .from("room_players")
-            .insert({
-                room_id: roomId,
-                user_id,
-                color,
-                nickname,
-            });
+        const [{ error: joinError }, { data: roomData, error: roomError }] =
+            await Promise.all([
+                supabase.from("room_players").insert({
+                    room_id: roomId,
+                    user_id,
+                    color,
+                    nickname,
+                }),
+                supabase
+                    .from("rooms")
+                    .select("started")
+                    .eq("id", roomId)
+                    .single(),
+            ]);
 
-        console.log(joinError);
-
-        if (joinError) {
+        if (joinError || roomError) {
             addToast({
                 data: {
                     title: "Unable to create player",
@@ -84,7 +88,9 @@
             return;
         }
 
-        goto(`/${roomId}/playing`);
+        goto(roomData.started ? `/${roomId}/playing` : `/${roomId}`, {
+            invalidateAll: true,
+        });
     }
 </script>
 

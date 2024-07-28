@@ -141,7 +141,7 @@
                         user: await user_id,
                     });
                 } catch {
-                    goto("/");
+                    goto(`/${roomId}/playing/nickname`);
                 }
             });
     });
