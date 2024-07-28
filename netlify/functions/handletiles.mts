@@ -160,6 +160,7 @@ export const handler: Handler = async (event) => {
 
   if (won || ("x" in return_tile && return_tile.state === MINE_TILE)) {
     const channel = supabase.channel(`room:${roomId}`);
+    console.log("Game over!");
 
     const { data } = await supabase
       .from("room_players")
