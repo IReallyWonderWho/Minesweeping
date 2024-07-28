@@ -63,6 +63,7 @@
                 started: true,
                 rows_columns: $numberOfRowsColumns[0],
                 mine_ratio: $mineRatio[0],
+                created_at: new Date().toISOString(),
             })
             .eq("id", roomId);
     }

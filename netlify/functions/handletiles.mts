@@ -89,6 +89,7 @@ export const handler: Handler = async (event) => {
 
     if (error) return { statusCode: 500 };
     if (!data.started) return { statusCode: 404 };
+
     let client_board = data.client_board;
     let server_board = serverData?.server_board;
 
@@ -160,7 +161,7 @@ export const handler: Handler = async (event) => {
   if (won || ("x" in return_tile && return_tile.state === MINE_TILE)) {
     const channel = supabase.channel(`room:${roomId}`);
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("room_players")
       .select("nickname")
       .eq("user_id", user?.id)
@@ -175,6 +176,17 @@ export const handler: Handler = async (event) => {
         board: room.server_board,
       },
     });
+
+    fetch(`${baseUrl}/.netlify/functions/cleanupRoom`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        roomId,
+      }),
+    }).catch((error) => console.error("Failed to send update request:", error));
+    cache.delete(roomId);
 
     await supabase.removeChannel(channel);
   }

@@ -30,6 +30,7 @@
 
     const user_id = data.userPromise
         .then((data) => data.id)
+        // If the user isn't signed into the room with a nickname, redirect them
         .catch(() => goto(`/${roomId}/playing/nickname`));
 
     let previous_position: [number, number] = [0, 0];
@@ -134,6 +135,12 @@
                     if (won) {
                         $confetti = [true];
                     }
+
+                    setTimeout(() => {
+                        $flags = new Map();
+                        $confetti = [false];
+                        goto(`/${roomId}/`, { invalidateAll: true });
+                    }, 5500);
                 },
             )
             .on("presence", { event: "sync" }, () => {
