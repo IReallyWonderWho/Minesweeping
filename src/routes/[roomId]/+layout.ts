@@ -8,7 +8,9 @@ export const ssr = false;
 async function getData(roomId: number) {
   const { data, error } = await supabase
     .from("rooms")
-    .select("client_board, created_at, flags, started, rows_columns")
+    .select(
+      "client_board, created_at, flags, started, rows_columns, mine_ratio",
+    )
     .eq("id", roomId)
     .single();
 

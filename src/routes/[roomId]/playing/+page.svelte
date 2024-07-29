@@ -38,6 +38,7 @@
 
     let element: any;
     let correctBoard: Array<Array<number>> | undefined;
+    let gameEnded: boolean = false;
 
     // User id: { x, y, color, nickname }
     let player_positions: Map<
@@ -89,7 +90,6 @@
 
     onMount(() => {
         data.roomPromise.then((room) => {
-            console.log(room);
             if (!room.started) return goto(`/${roomId}`);
             $flags = new Map(Object.entries(room.flags ?? {}));
         });
@@ -117,11 +117,11 @@
                     event: "gameOver",
                 },
                 ({ payload }) => {
-                    console.log(payload);
                     const won = payload.won;
                     const player = payload.player;
 
                     correctBoard = payload.board;
+                    gameEnded = true;
 
                     addToast({
                         data: {
@@ -220,6 +220,7 @@
                 {roomId}
                 {correctBoard}
                 board={createTempBoard(12)}
+                started={false}
             />
         {:then room}
             <!--If the board isn't created yet, make a temporary one just so the code works lol-->
@@ -228,12 +229,15 @@
                 class="top-[11vh] fixed text-center z-10"
                 time_started={room.created_at}
                 board={room.client_board ?? createTempBoard(room.rows_columns)}
+                ratio={room.mine_ratio}
+                shouldTimerStop={gameEnded}
             />
             <Board
                 bind:element
                 class="col-start-2 relative"
                 {roomId}
                 {correctBoard}
+                started={room.started}
                 initalFlags={$flags}
                 board={room.client_board ?? createTempBoard(room.rows_columns)}
                 on:mousemove={handleMouseMove}

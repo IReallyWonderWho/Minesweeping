@@ -104,7 +104,7 @@ export const handler: Handler = async (event) => {
       client_board = client;
       server_board = server;
 
-      await supabase.from("serverboard").insert({
+      await supabase.from("serverboard").upsert({
         room_id: roomId,
         server_board,
       });
@@ -168,26 +168,26 @@ export const handler: Handler = async (event) => {
       .eq("user_id", user?.id)
       .single();
 
-    fetch(`${baseUrl}/.netlify/functions/cleanupRoom`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        roomId,
-      }),
-    }).catch((error) => console.error("Failed to send update request:", error));
     cache.delete(roomId);
 
-    await channel.send({
-      type: "broadcast",
-      event: "gameOver",
-      payload: {
-        won: return_tile["state"] === MINE_TILE ? false : won,
-        player: data?.nickname,
-        board: room.server_board,
-      },
-    });
+    await Promise.all([
+      supabase.from("rooms").update({
+        client_board: null,
+        revealed_tiles: 0,
+        flags: {},
+        started: false,
+      }),
+      supabase.from("serverboard").delete().eq("room_id", roomId),
+      channel.send({
+        type: "broadcast",
+        event: "gameOver",
+        payload: {
+          won: return_tile["state"] === MINE_TILE ? false : won,
+          player: data?.nickname,
+          board: room.server_board,
+        },
+      }),
+    ]);
 
     await supabase.removeChannel(channel);
   }

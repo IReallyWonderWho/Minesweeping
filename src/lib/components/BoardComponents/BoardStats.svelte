@@ -5,12 +5,19 @@
 
     export let time_started: string | undefined;
     export let board: Array<Array<number>>;
+    export let ratio = 6;
+    export let shouldTimerStop = false;
 
-    const RATIO = 6;
+    $: number_of_flags = Math.floor(board.length ** 2 / ratio);
 
-    $: number_of_flags = board.length ** 2 / RATIO;
+    $: {
+        if (shouldTimerStop) {
+            clearInterval(event);
+        }
+    }
 
     let current_time: number = Date.now();
+    let event: NodeJS.Timeout;
 
     // Taken from
     // https://stackoverflow.com/questions/3733227/javascript-seconds-to-minutes-and-seconds/
@@ -38,7 +45,7 @@
         : 0;
 
     onMount(() => {
-        const event = setInterval(() => {
+        event = setInterval(() => {
             current_time = Date.now();
         }, 1000);
 

@@ -35,7 +35,9 @@
             $mineRatio[0] !== previous_mine_ratio
         ) {
             const new_board = createTempBoard($numberOfRowsColumns[0]);
-            let amount_of_mines = new_board.length ** 2 / $mineRatio[0];
+            let amount_of_mines = Math.floor(
+                new_board.length ** 2 / $mineRatio[0],
+            );
 
             previous_mine_ratio = $mineRatio[0];
             previous_size = $numberOfRowsColumns[0];
@@ -63,6 +65,9 @@
                 started: true,
                 rows_columns: $numberOfRowsColumns[0],
                 mine_ratio: $mineRatio[0],
+                client_board: null,
+                revealed_tiles: 0,
+                flags: {},
                 created_at: new Date().toISOString(),
             })
             .eq("id", roomId);
@@ -113,6 +118,13 @@
                 $players.delete(user);
                 $players = $players;
             })
+            .on("broadcast", { event: "settingsChanged" }, (payload) => {
+                const newSize = payload.settings[0];
+                const newRatio = payload.settings[1];
+
+                $numberOfRowsColumns = [newSize];
+                $mineRatio = [newRatio];
+            })
             .on(
                 "postgres_changes",
                 {
@@ -161,6 +173,7 @@
             class="max-h-[400px]"
             correctBoard={undefined}
             {board}
+            started={false}
             initalFlags={new Map()}
             {roomId}
         />

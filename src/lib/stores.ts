@@ -7,6 +7,7 @@ export interface roomData {
     flags: Map<string, boolean>;
     started: boolean;
     rows_columns: number;
+    mine_ratio: number;
   }>;
   userPromise: Promise<{
     playerData: {

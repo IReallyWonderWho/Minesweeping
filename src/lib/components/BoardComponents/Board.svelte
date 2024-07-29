@@ -10,6 +10,7 @@
     const MINE_TILE = -1;
 
     export let initalFlags: Map<string, boolean>;
+    export let started: boolean;
     export let roomId: string;
     export let board: Array<Array<number>>;
     export let element: Element;
@@ -30,12 +31,16 @@
             const [_x, _y] = id.split(",");
             const [x, y] = [Number(_x), Number(_y)];
 
+            // Make sure the flag is within range
+            if (x < 0 || x > board.length - 1 || y < 0 || y > board.length - 1)
+                continue;
+
             board[x][y] = FLAGGED_TILE;
         }
     }
 
     async function postTile(x: number, y: number) {
-        if (board && board[x][y] !== UNKNOWN_TILE) return;
+        if ((board && board[x][y] !== UNKNOWN_TILE) || !started) return;
 
         const { data, error } = await supabase.auth.getSession();
 
@@ -91,9 +96,10 @@
 
     async function flagTile(x: number, y: number) {
         if (
-            board &&
-            board[x][y] !== UNKNOWN_TILE &&
-            board[x][y] !== FLAGGED_TILE
+            (board &&
+                board[x][y] !== UNKNOWN_TILE &&
+                board[x][y] !== FLAGGED_TILE) ||
+            !started
         )
             return;
 
