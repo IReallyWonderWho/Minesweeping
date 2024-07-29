@@ -9,8 +9,9 @@
         height="1.25rem"
         width="1.25rem"
     />
-    <a class="text-primary-100 font-metropolis font-bold text-lg ml-0" href="/"
-        >Minesweeping</a
+    <a
+        class="ml-[-20px] mt-[10px] text-primary-100 tracking-[-0.14em] font-display text-lg z-10"
+        href="/">Minesweeping</a
     >
 </div>
 

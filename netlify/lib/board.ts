@@ -131,26 +131,31 @@ export function generateSolvedBoard(
 //  the tile requested was a zero or not
 //
 // Array:
-// [x, y, state]
+// [shouldIncrement, [x, y, state]]
 //
 // Map:
-// Map<"x,y", state>
+// [shouldIncrement, Map<"x,y", state>],
 export function returnTile(
   server_board: Array<Array<number>>,
   client_board: Array<Array<number>>,
   row: number,
   column: number,
-): { x: number; y: number; state: number } | Map<string, number> {
+):
+  | [boolean, { x: number; y: number; state: number }]
+  | [boolean, Map<string, number>] {
   const client_tile = client_board[row][column];
   const server_tile = server_board[row][column];
 
   // If the client board already has the answer, just return it
   if (client_tile !== UNKNOWN_TILE) {
-    return {
-      x: row,
-      y: column,
-      state: client_tile,
-    };
+    return [
+      false,
+      {
+        x: row,
+        y: column,
+        state: client_tile,
+      },
+    ];
   }
 
   switch (server_tile) {
@@ -159,17 +164,20 @@ export function returnTile(
 
       massReveal(server_board, client_board, row, column, visited_tiles);
 
-      return visited_tiles;
+      return [true, visited_tiles];
     }
   }
 
   client_board[row][column] = server_tile;
 
-  return {
-    x: row,
-    y: column,
-    state: server_tile,
-  };
+  return [
+    true,
+    {
+      x: row,
+      y: column,
+      state: server_tile,
+    },
+  ];
 }
 
 export function didGameEnd(

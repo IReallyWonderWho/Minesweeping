@@ -20,7 +20,7 @@
             Minesweeping
         </h1>
         <Icon
-            class="mt-[-175px] ml-[-375px] absolute z-0 -rotate-45"
+            class="mt-[-175px] ml-[-375px] absolute z-0 -rotate-12"
             name="flag"
             height="3rem"
             width="3rem"

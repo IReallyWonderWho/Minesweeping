@@ -7,27 +7,150 @@ import {
   returnTile,
   didGameEnd,
 } from "../lib/board";
-import { Redis } from "@upstash/redis";
 import cookie from "cookie";
-
-interface Room {
-  client_board: Array<Array<number>>;
-  server_board: Array<Array<number>>;
-  revealed_tiles: number;
-  players: Map<string, string>;
-  rows_columns: number;
-  mine_ratio: number;
-}
-
-const redis = new Redis({
-  url: "https://healthy-garfish-58064.upstash.io",
-  token: process.env.UPSTASH_PRIVATE_API_KEY ?? "",
-});
 
 const supabase = new SupabaseClient(
   process.env.PUBLIC_SUPABASE_URL ?? "",
   process.env.SUPABASE_PRIVATE_API_KEY ?? "",
 );
+
+interface Room {
+  client_board: Array<Array<number>>;
+  server_board: Array<Array<number>>;
+  revealed_tiles: number;
+  players: Record<string, string>;
+  rows_columns: number;
+  mine_ratio: number;
+}
+
+type SuccessResult = {
+  success: true;
+  data: Room;
+};
+
+type ErrorResult = {
+  success: false;
+  error: {
+    statusCode: number;
+  };
+};
+
+type GetRoomDataResult = SuccessResult | ErrorResult;
+
+async function getRoomData(
+  roomId: string,
+  x: number,
+  y: number,
+): Promise<GetRoomDataResult> {
+  const { data, error } = await supabase
+    .from("rooms")
+    .select(
+      "client_board, revealed_tiles, rows_columns, mine_ratio, started, players, serverboard(server_board)",
+    )
+    .eq("id", roomId)
+    .single();
+
+  if (error) return { success: false, error: { statusCode: 500 } };
+  if (!data.started) return { success: false, error: { statusCode: 404 } };
+
+  let client_board = data.client_board;
+  // @ts-ignore
+  let server_board = data.serverboard?.server_board;
+
+  if (!client_board || !server_board) {
+    const [server, client] = generateSolvedBoard(
+      data.rows_columns,
+      x,
+      y,
+      data.mine_ratio,
+    );
+
+    client_board = client;
+    server_board = server;
+
+    await supabase.from("serverboard").upsert({
+      room_id: roomId,
+      server_board,
+    });
+  }
+
+  return {
+    success: true,
+    data: {
+      client_board,
+      server_board,
+      revealed_tiles: data.revealed_tiles,
+      players: data.players,
+      rows_columns: data.rows_columns,
+      mine_ratio: data.mine_ratio,
+    },
+  };
+}
+
+type UserSuccess = {
+  success: true;
+  data: {
+    headers?: Record<string, any>;
+    userId: string;
+  };
+};
+
+type UserError = {
+  success: false;
+  error: {
+    statusCode: number;
+    body?: string;
+  };
+};
+
+type GetUserDataResult = UserSuccess | UserError;
+
+/**
+    Used to check if an user is authenticated and return the User Id if authenticated
+*/
+async function getUser(
+  session: string | undefined,
+  accessToken: string,
+  room: Room,
+): Promise<GetUserDataResult> {
+  if (!session || !room.players[session]) {
+    const { data: userData, error } = await supabase.auth.getUser(accessToken);
+
+    if (error || !userData.user) {
+      return {
+        success: false,
+        error: {
+          statusCode: 401,
+          body: JSON.stringify({ error: "Invalid token" }),
+        },
+      };
+    }
+
+    session = uuidv4();
+    room.players[session] = userData.user.id;
+
+    return {
+      success: true,
+      data: {
+        headers: {
+          "Set-Cookie": cookie.serialize("Session", session, {
+            httpOnly: true,
+            secure: true,
+            path: "/",
+          }),
+        },
+        userId: userData.user.id,
+      },
+    };
+  }
+
+  return {
+    success: true,
+    data: {
+      userId: room.players[session],
+    },
+  };
+}
 
 export const handler: Handler = async (event) => {
   const body = JSON.parse(event.body ?? "");
@@ -47,87 +170,29 @@ export const handler: Handler = async (event) => {
       statusCode: 400,
     };
 
-  let room = (await redis.get(roomId)) as Room | undefined;
-  let user: string | undefined = room?.players[Session];
-  let headers: any;
+  const result = await getRoomData(roomId, x, y);
 
-  if (!Session || !user) {
-    const { data: userData, error } = await supabase.auth.getUser(accessToken);
+  if (!result.success) return result.error;
 
-    if (error || !userData.user) {
-      return {
-        statusCode: 401,
-        body: JSON.stringify({ error: "Invalid token" }),
-      };
-    }
+  const room = result.data;
 
-    if (room) {
-      Session = uuidv4();
-      room.players[Session] = userData.user.id;
-      headers = {
-        "Set-Cookie": cookie.serialize("Session", Session, {
-          httpOnly: true,
-          secure: true,
-          path: "/",
-        }),
-      };
-    }
+  let userResult = await getUser(Session, accessToken, room);
 
-    user = userData.user.id;
-  }
+  if (!userResult.success) return userResult.error;
 
-  if (!room) {
-    console.log("getting info from the slow supabase :(");
-    const [{ data, error }, { data: serverData }] = await Promise.all([
-      supabase
-        .from("rooms")
-        .select(
-          "client_board, revealed_tiles, rows_columns, mine_ratio, started",
-        )
-        .eq("id", roomId)
-        .single(),
-      supabase
-        .from("serverboard")
-        .select("server_board")
-        .eq("room_id", roomId)
-        .single(),
-    ]);
+  const { headers, userId } = userResult.data;
 
-    if (error) return { statusCode: 500 };
-    if (!data.started) return { statusCode: 404 };
-
-    let client_board = data.client_board;
-    let server_board = serverData?.server_board;
-
-    if (!client_board || !server_board) {
-      const [server, client] = generateSolvedBoard(
-        data.rows_columns,
-        x,
-        y,
-        data.mine_ratio,
-      );
-
-      client_board = client;
-      server_board = server;
-
-      await supabase.from("serverboard").upsert({
-        room_id: roomId,
-        server_board,
-      });
-    }
-
-    room = {
-      client_board,
-      server_board,
-      revealed_tiles: data.revealed_tiles,
-      players: new Map(),
-      rows_columns: data.rows_columns,
-      mine_ratio: data.mine_ratio,
-    };
-  }
-
-  const return_tile = returnTile(room.server_board, room.client_board, x, y);
-  const increment_by = "x" in return_tile ? 1 : return_tile.size;
+  const [shouldIncrement, return_tile] = returnTile(
+    room.server_board,
+    room.client_board,
+    x,
+    y,
+  );
+  const increment_by = shouldIncrement
+    ? "x" in return_tile
+      ? 1
+      : return_tile.size
+    : 0;
 
   const won = didGameEnd(
     room.client_board,
@@ -164,10 +229,8 @@ export const handler: Handler = async (event) => {
     const { data } = await supabase
       .from("room_players")
       .select("nickname")
-      .eq("user_id", user)
+      .eq("user_id", userId)
       .single();
-
-    redis.del(roomId);
 
     await Promise.all([
       supabase.from("rooms").update({
@@ -175,6 +238,7 @@ export const handler: Handler = async (event) => {
         revealed_tiles: 0,
         flags: {},
         started: false,
+        players: {},
       }),
       supabase.from("serverboard").delete().eq("room_id", roomId),
       channel.send({
