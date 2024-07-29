@@ -35,7 +35,6 @@
                 board[x][y] >= MINE_TILE
             ) {
                 $flags.delete(`${x},${y}`);
-                $flags = $flags;
 
                 supabase
                     .from("rooms")
@@ -180,20 +179,46 @@
     onMount(() => {
         channel
             .on(
-                "postgres_changes",
+                "broadcast",
                 {
-                    event: "UPDATE",
-                    schema: "public",
-                    table: "rooms",
+                    event: "tileUpdated",
                 },
-                (payload) => {
-                    console.log(payload.new);
-                    const newBoard = payload.new.client_board;
+                ({ payload }) => {
+                    const returned_tile = JSON.parse(payload.tile);
 
-                    if (!newBoard) return;
+                    if (!board) return;
 
-                    console.log(newBoard);
-                    board = newBoard;
+                    if (returned_tile["x"] !== undefined) {
+                        const { x, y, state } = returned_tile;
+
+                        // If a tile is being flagged, make sure it's not in any invalid
+                        // positions
+                        if (
+                            state === FLAGGED_TILE &&
+                            board[x][y] === UNKNOWN_TILE
+                        ) {
+                            $flags.set(`${x},${y}`, true);
+                            $flags = $flags;
+
+                            board[x][y] = FLAGGED_TILE;
+                        } else if (state !== FLAGGED_TILE) {
+                            if (board[x][y] === FLAGGED_TILE) {
+                                $flags.delete(`${x},${y}`);
+                                $flags = $flags;
+                            }
+
+                            board[x][y] = state;
+                        }
+                    } else {
+                        for (const [id, state] of new Map(
+                            Object.entries(returned_tile),
+                        )) {
+                            const [_x, _y] = id.split(",");
+                            const [x, y] = [Number(_x), Number(_y)];
+
+                            board[x][y] = state as number;
+                        }
+                    }
                 },
             )
             .subscribe();
