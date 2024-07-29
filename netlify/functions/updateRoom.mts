@@ -20,24 +20,13 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const channel = supabase.channel(`tile:${roomId}`);
-
-    channel.send({
-      type: "broadcast",
-      event: "tileUpdated",
-      payload: { tile },
-    });
-
-    await Promise.all([
-      supabase
-        .from("rooms")
-        .update({
-          client_board,
-          revealed_tiles,
-        })
-        .eq("id", roomId),
-      supabase.removeChannel(channel),
-    ]);
+    await supabase
+      .from("rooms")
+      .update({
+        client_board,
+        revealed_tiles,
+      })
+      .eq("id", roomId);
 
     return { statusCode: 200, body: "Update successful" };
   } catch (error) {

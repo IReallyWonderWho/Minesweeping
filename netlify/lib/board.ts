@@ -186,7 +186,7 @@ export function didGameEnd(
 
   console.log(number_of_remaining_tiles);
   console.log(number_of_revealed_tiles);
-  return number_of_remaining_tiles <= number_of_revealed_tiles;
+  return number_of_remaining_tiles === number_of_revealed_tiles;
 }
 
 export function gameOver(

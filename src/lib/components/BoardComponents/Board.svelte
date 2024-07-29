@@ -16,25 +16,38 @@
     export let element: Element;
     export let correctBoard: Array<Array<number>> | undefined;
 
-    const channel = supabase.channel(`tile:${roomId}`, {
-        config: {
-            broadcast: {
-                self: true,
-            },
-        },
-    });
+    const channel = supabase.channel(`tile:${roomId}`);
 
     $: boardLength = board.length;
 
     $: {
-        for (const [id] of initalFlags) {
+        for (const [id] of $flags) {
             const [_x, _y] = id.split(",");
             const [x, y] = [Number(_x), Number(_y)];
 
             // Make sure the flag is within range
-            if (x < 0 || x > board.length - 1 || y < 0 || y > board.length - 1)
-                continue;
+            console.log(board[x][y]);
+            if (
+                x < 0 ||
+                x > board.length - 1 ||
+                y < 0 ||
+                y > board.length - 1 ||
+                board[x][y] >= MINE_TILE
+            ) {
+                $flags.delete(`${x},${y}`);
+                $flags = $flags;
 
+                supabase
+                    .from("rooms")
+                    .update({
+                        flags: Object.fromEntries($flags),
+                    })
+                    .eq("id", roomId);
+
+                continue;
+            }
+
+            console.log("bruh");
             board[x][y] = FLAGGED_TILE;
         }
     }
@@ -167,46 +180,20 @@
     onMount(() => {
         channel
             .on(
-                "broadcast",
+                "postgres_changes",
                 {
-                    event: "tileUpdated",
+                    event: "UPDATE",
+                    schema: "public",
+                    table: "rooms",
                 },
-                ({ payload }) => {
-                    const returned_tile = JSON.parse(payload.tile);
+                (payload) => {
+                    console.log(payload.new);
+                    const newBoard = payload.new.client_board;
 
-                    if (!board) return;
+                    if (!newBoard) return;
 
-                    if (returned_tile["x"] !== undefined) {
-                        const { x, y, state } = returned_tile;
-
-                        // If a tile is being flagged, make sure it's not in any invalid
-                        // positions
-                        if (
-                            state === FLAGGED_TILE &&
-                            board[x][y] === UNKNOWN_TILE
-                        ) {
-                            $flags.set(`${x},${y}`, true);
-                            $flags = $flags;
-
-                            board[x][y] = FLAGGED_TILE;
-                        } else if (state !== FLAGGED_TILE) {
-                            if (board[x][y] === FLAGGED_TILE) {
-                                $flags.delete(`${x},${y}`);
-                                $flags = $flags;
-                            }
-
-                            board[x][y] = state;
-                        }
-                    } else {
-                        for (const [id, state] of new Map(
-                            Object.entries(returned_tile),
-                        )) {
-                            const [_x, _y] = id.split(",");
-                            const [x, y] = [Number(_x), Number(_y)];
-
-                            board[x][y] = state as number;
-                        }
-                    }
+                    console.log(newBoard);
+                    board = newBoard;
                 },
             )
             .subscribe();
