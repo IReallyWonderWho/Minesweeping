@@ -52,6 +52,14 @@
                 }
             }
 
+            roomChannel.send({
+                type: "broadcast",
+                event: "settingsChanged",
+                payload: {
+                    settings: [$numberOfRowsColumns[0], $mineRatio[0]],
+                },
+            });
+
             board = new_board;
         }
     }
@@ -119,13 +127,19 @@
                 $players.delete(user);
                 $players = $players;
             })
-            .on("broadcast", { event: "settingsChanged" }, (payload) => {
-                const newSize = payload.settings[0];
-                const newRatio = payload.settings[1];
+            .on(
+                "broadcast",
+                { event: "settingsChanged" },
+                async ({ payload }) => {
+                    if ((await user_id) !== (await data.roomPromise).host) {
+                        const newSize = payload.settings[0];
+                        const newRatio = payload.settings[1];
 
-                $numberOfRowsColumns = [newSize];
-                $mineRatio = [newRatio];
-            })
+                        $numberOfRowsColumns = [newSize];
+                        $mineRatio = [newRatio];
+                    }
+                },
+            )
             .on(
                 "postgres_changes",
                 {
