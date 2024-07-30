@@ -1,6 +1,5 @@
 import type { Handler } from "@netlify/functions";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { Redis } from "@upstash/redis";
 
 const supabase = new SupabaseClient(
   process.env.PUBLIC_SUPABASE_URL ?? "",
