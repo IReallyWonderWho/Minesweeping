@@ -216,14 +216,13 @@
             <Board
                 bind:element
                 class="col-start-2 relative"
-                initalFlags={$flags}
                 {roomId}
                 {correctBoard}
                 board={createTempBoard(12)}
                 started={false}
             />
         {:then room}
-            <!--If the board isn't created yet, make a temporary one just so the code works lol-->
+            <!--If the board isn't created yet, make a temporary one just so the code works-->
             <!--This doesn't take into possibility different screen sizes, i'll deal with that later-->
             <BoardStats
                 class="top-[11vh] fixed text-center z-10"
@@ -238,7 +237,6 @@
                 {roomId}
                 {correctBoard}
                 started={room.started}
-                initalFlags={$flags}
                 board={room.client_board ?? createTempBoard(room.rows_columns)}
                 on:mousemove={handleMouseMove}
             >

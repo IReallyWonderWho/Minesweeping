@@ -174,7 +174,6 @@
             correctBoard={undefined}
             {board}
             started={false}
-            initalFlags={new Map()}
             {roomId}
         />
         <button

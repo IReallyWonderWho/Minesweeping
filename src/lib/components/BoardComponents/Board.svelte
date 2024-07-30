@@ -9,7 +9,6 @@
     const FLAGGED_TILE = -3;
     const MINE_TILE = -1;
 
-    export let initalFlags: Map<string, boolean>;
     export let started: boolean;
     export let roomId: string;
     export let board: Array<Array<number>>;
