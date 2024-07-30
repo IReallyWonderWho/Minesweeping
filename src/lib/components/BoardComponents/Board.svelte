@@ -25,7 +25,6 @@
             const [x, y] = [Number(_x), Number(_y)];
 
             // Make sure the flag is within range
-            console.log(board[x][y]);
             if (
                 x < 0 ||
                 x > board.length - 1 ||
@@ -45,7 +44,6 @@
                 continue;
             }
 
-            console.log("bruh");
             board[x][y] = FLAGGED_TILE;
         }
     }
@@ -218,6 +216,20 @@
                             board[x][y] = state as number;
                         }
                     }
+                },
+            )
+            .on(
+                "postgres_changes",
+                {
+                    event: "UPDATE",
+                    schema: "public",
+                    table: "rooms",
+                },
+                (payload) => {
+                    console.log(payload.new.client_board);
+                    if (!payload.new.client_board) return;
+
+                    board = payload.new.client_board;
                 },
             )
             .subscribe();
