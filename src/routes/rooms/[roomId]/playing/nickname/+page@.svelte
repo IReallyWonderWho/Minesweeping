@@ -3,7 +3,7 @@
     import { goto } from "$app/navigation";
     import { addToast } from "$lib/components/Toaster.svelte";
     import { supabase } from "$lib/supabaseClient";
-    import { getRandomHSL } from "$lib/utility";
+    import { getRandomHSL, decode } from "$lib/utility";
 
     export let form;
 
@@ -88,11 +88,18 @@
             return;
         }
 
-        goto(roomData.started ? `/${roomId}/playing` : `/${roomId}`, {
-            invalidateAll: true,
-        });
+        goto(
+            roomData.started ? `/rooms/${roomId}/playing` : `/rooms/${roomId}`,
+            {
+                invalidateAll: true,
+            },
+        );
     }
 </script>
+
+<svelte:head>
+    <title>{decode(Number(roomId))} › Nickname</title>
+</svelte:head>
 
 <div class="hero min-h-screen bg-background">
     <div class="hero-content flex-col text-center">

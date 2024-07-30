@@ -44,3 +44,23 @@ export function encode(s: string) {
     }
   }, 0);
 }
+
+export function decode(n: number): string {
+  if (n < 0) throw new Error("Invalid input: number must be non-negative");
+
+  if (n === 0) return "0";
+
+  let result = "";
+
+  while (n > 0) {
+    const remainder = n % BASE;
+    if (remainder < 10) {
+      result = String.fromCharCode("0".charCodeAt(0) + remainder) + result;
+    } else {
+      result = String.fromCharCode("a".charCodeAt(0) + remainder - 10) + result;
+    }
+    n = Math.floor(n / BASE);
+  }
+
+  return result;
+}

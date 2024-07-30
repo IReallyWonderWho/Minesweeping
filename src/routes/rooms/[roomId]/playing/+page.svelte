@@ -10,7 +10,7 @@
     import ConfettiStage from "$lib/components/Confetti/ConfettiStage.svelte";
     import { supabase } from "$lib/supabaseClient";
     import { flags, confetti, windowRect, type roomData } from "$lib/stores";
-    import { clamp } from "$lib/utility";
+    import { clamp, decode } from "$lib/utility";
     import { createTempBoard } from "$lib/boardUtils";
 
     export let data: roomData;
@@ -31,7 +31,10 @@
     const user_id = data.userPromise
         .then((data) => data.id)
         // If the user isn't signed into the room with a nickname, redirect them
-        .catch(() => goto(`/${roomId}/playing/nickname`));
+        .catch(() =>
+            goto(`/rooms/
+          ${roomId}/playing/nickname`),
+        );
 
     let previous_position: [number, number] = [0, 0];
     let last_call = Date.now();
@@ -90,7 +93,7 @@
 
     onMount(() => {
         data.roomPromise.then((room) => {
-            if (!room.started) return goto(`/${roomId}`);
+            if (!room.started) return goto(`/rooms/${roomId}`);
             $flags = new Map(Object.entries(room.flags ?? {}));
         });
         // Set up database connections && presence
@@ -140,7 +143,7 @@
                     setTimeout(() => {
                         $flags = new Map();
                         $confetti = [false];
-                        goto(`/${roomId}/`, { invalidateAll: true });
+                        goto(`/rooms/${roomId}/`, { invalidateAll: true });
                     }, 5500);
                 },
             )
@@ -205,6 +208,9 @@
     });
 </script>
 
+<svelte:head>
+    <title>{decode(Number(roomId))} › Playing</title>
+</svelte:head>
 <svelte:window on:resize={windowResized} />
 
 <main

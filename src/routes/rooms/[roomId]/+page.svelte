@@ -13,7 +13,7 @@
     import Board from "$lib/components/BoardComponents/Board.svelte";
     import { createTempBoard, UNKNOWN_TILE, MINE_TILE } from "$lib/boardUtils";
     import BoardSettings from "$lib/components/BoardComponents/BoardSettings.svelte";
-    import { getRandomInt } from "$lib/utility";
+    import { getRandomInt, decode } from "$lib/utility";
 
     export let data: roomData;
 
@@ -85,7 +85,7 @@
     onMount(() => {
         data.roomPromise.then((room) => {
             if (room.started) {
-                goto(`/${roomId}/playing/`);
+                goto(`/rooms/${roomId}/playing/`);
             }
         });
 
@@ -149,7 +149,7 @@
                 },
                 async (payload) => {
                     if (payload.new.started) {
-                        await goto(`/${roomId}/playing/`, {
+                        await goto(`/rooms/${roomId}/playing/`, {
                             invalidateAll: true,
                         });
                     }
@@ -168,11 +168,15 @@
                         user: await user_id,
                     });
                 } catch {
-                    goto(`/${roomId}/playing/nickname`);
+                    goto(`/rooms/${roomId}/playing/nickname`);
                 }
             });
     });
 </script>
+
+<svelte:head>
+    <title>{decode(Number(roomId))} › Playing</title>
+</svelte:head>
 
 <main class="flex justify-between h-[100vh]">
     <div class="flex-1 flex flex-col items-center justify-center">

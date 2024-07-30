@@ -1,0 +1,6 @@
+# Allow all robots complete access
+User-agent: *
+Allow: /
+
+# Disallow access to specific folders
+Disallow: /rooms/

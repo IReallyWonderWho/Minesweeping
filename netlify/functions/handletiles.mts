@@ -212,7 +212,8 @@ export const handler: Handler = async (event) => {
   const baseUrl = process.env.URL || "http://localhost:8888";
 
   // Instead of updating directly, call another serverless function
-  fetch(`${baseUrl}/.netlify/functions/updateRoom`, {
+  // (Not awaiting this is causing me nightmares and I'm not even sure if awaiting it is the answer)
+  await fetch(`${baseUrl}/.netlify/functions/updateRoom`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -221,14 +222,7 @@ export const handler: Handler = async (event) => {
       roomId,
       client_board: room.client_board,
       revealed_tiles: room.revealed_tiles + increment_by,
-      tile:
-        "x" in return_tile
-          ? JSON.stringify(return_tile)
-          : JSON.stringify(Object.fromEntries(return_tile)),
-      server_board: room.server_board,
       players: room.players,
-      mine_ratio: room.mine_ratio,
-      rows_columns: room.rows_columns,
     }),
   }).catch((error) => console.error("Failed to send update request:", error));
 
