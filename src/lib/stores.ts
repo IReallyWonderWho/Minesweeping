@@ -8,6 +8,7 @@ export interface roomData {
     started: boolean;
     rows_columns: number;
     mine_ratio: number;
+    host: string;
   }>;
   userPromise: Promise<{
     playerData: {

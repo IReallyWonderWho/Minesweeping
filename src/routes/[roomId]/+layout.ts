@@ -9,7 +9,7 @@ async function getData(roomId: number) {
   const { data, error } = await supabase
     .from("rooms")
     .select(
-      "client_board, created_at, flags, started, rows_columns, mine_ratio",
+      "client_board, created_at, flags, started, rows_columns, mine_ratio, host",
     )
     .eq("id", roomId)
     .single();

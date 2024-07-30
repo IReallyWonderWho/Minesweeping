@@ -68,10 +68,20 @@ async function getRoomData(
     client_board = client;
     server_board = server;
 
-    await supabase.from("serverboard").upsert({
-      room_id: roomId,
-      server_board,
-    });
+    await Promise.all([
+      supabase.from("serverboard").upsert({
+        room_id: roomId,
+        server_board,
+      }),
+      supabase
+        .from("rooms")
+        .update({
+          client_board,
+          revealed_tiles: 0,
+          flags: {},
+        })
+        .eq("id", roomId),
+    ]);
   }
 
   return {

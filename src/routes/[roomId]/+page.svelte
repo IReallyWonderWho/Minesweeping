@@ -59,6 +59,7 @@
     let element: any;
 
     async function onStart() {
+        // This is secured through postgres' RLS
         await supabase
             .from("rooms")
             .update({
@@ -167,7 +168,6 @@
                 XF6 HG7
             </h1>
         </div>
-        <BoardSettings />
         <Board
             bind:element
             class="max-h-[400px]"
@@ -176,11 +176,19 @@
             started={false}
             {roomId}
         />
-        <button
-            on:click={onStart}
-            class="btn btn-circle bg-primary-500 text-primary-900 w-[200px] h-[44px] font-metropolis font-bold text-lg m-5"
-            >Start</button
-        >
+        <!--These are only for the room's host-->
+        {#await data.roomPromise then room}
+            {#await user_id then id}
+                {#if room.host === id}
+                    <BoardSettings />
+                    <button
+                        on:click={onStart}
+                        class="btn btn-circle bg-primary-500 text-primary-900 w-[200px] h-[44px] font-metropolis font-bold text-lg m-5"
+                        >Start</button
+                    >
+                {/if}
+            {/await}
+        {/await}
     </div>
-    <PlayerList players={$players} />
+    <PlayerList roomPromise={data.roomPromise} />
 </main>
