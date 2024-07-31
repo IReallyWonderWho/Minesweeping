@@ -162,7 +162,43 @@ async function getUser(
   };
 }
 
-export const handler: Handler = async (event) => {
+async function handleGameOver(roomId, userId, won, return_tile, server_board) {
+  const channel = supabase.channel(`room:${roomId}`);
+  console.log("Game over!");
+
+  const [{ data }] = await Promise.all([
+    supabase
+      .from("room_players")
+      .select("nickname")
+      .eq("user_id", userId)
+      .single(),
+    supabase.from("rooms").update({
+      client_board: null,
+      revealed_tiles: 0,
+      flags: {},
+      started: false,
+      players: {},
+    }),
+    supabase.from("serverboard").delete().eq("room_id", roomId),
+  ]);
+
+  await channel.send({
+    type: "broadcast",
+    event: "gameOver",
+    payload: {
+      won: return_tile["state"] === MINE_TILE ? false : won,
+      player: data?.nickname,
+      board: server_board,
+    },
+  });
+
+  await supabase.removeChannel(channel);
+}
+
+export const handler: Handler = async (event, context) => {
+  // Set this to false to allow the function to return before background operations complete
+  context.callbackWaitsForEmptyEventLoop = false;
+
   const body = JSON.parse(event.body ?? "");
   const accessToken = event.headers.authorization?.split("Bearer ")[1];
 
@@ -209,57 +245,8 @@ export const handler: Handler = async (event) => {
     room.revealed_tiles + increment_by,
     room.mine_ratio,
   );
-  const baseUrl = process.env.URL || "http://localhost:8888";
 
-  // Instead of updating directly, call another serverless function
-  // (Not awaiting this is causing me nightmares and I'm not even sure if awaiting it is the answer)
-  await fetch(`${baseUrl}/.netlify/functions/updateRoom`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      roomId,
-      client_board: room.client_board,
-      revealed_tiles: room.revealed_tiles + increment_by,
-      players: room.players,
-    }),
-  }).catch((error) => console.error("Failed to send update request:", error));
-
-  if (won || ("x" in return_tile && return_tile.state === MINE_TILE)) {
-    const channel = supabase.channel(`room:${roomId}`);
-    console.log("Game over!");
-
-    const { data } = await supabase
-      .from("room_players")
-      .select("nickname")
-      .eq("user_id", userId)
-      .single();
-
-    await Promise.all([
-      supabase.from("rooms").update({
-        client_board: null,
-        revealed_tiles: 0,
-        flags: {},
-        started: false,
-        players: {},
-      }),
-      supabase.from("serverboard").delete().eq("room_id", roomId),
-      channel.send({
-        type: "broadcast",
-        event: "gameOver",
-        payload: {
-          won: return_tile["state"] === MINE_TILE ? false : won,
-          player: data?.nickname,
-          board: room.server_board,
-        },
-      }),
-    ]);
-
-    await supabase.removeChannel(channel);
-  }
-
-  return {
+  const response = {
     body:
       "x" in return_tile
         ? JSON.stringify(return_tile)
@@ -267,4 +254,19 @@ export const handler: Handler = async (event) => {
     statusCode: 200,
     headers,
   };
+
+  // Awaiting this to try and ensure data consistency i guess
+  await Promise.all([
+    supabase.rpc("update_room_with_concurrency_check", {
+      p_room_id: roomId,
+      p_client_board: room.client_board,
+      p_revealed_tiles: room.revealed_tiles + increment_by,
+      p_players: room.players,
+    }),
+    won || ("x" in return_tile && return_tile.state === MINE_TILE)
+      ? handleGameOver(roomId, userId, won, return_tile, room.server_board)
+      : Promise.resolve(),
+  ]).catch((error) => console.error("Background update failed:", error));
+
+  return response;
 };

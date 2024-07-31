@@ -175,7 +175,7 @@
 </script>
 
 <svelte:head>
-    <title>{decode(Number(roomId))} › Playing</title>
+    <title>{decode(Number(roomId))} › Lobby</title>
 </svelte:head>
 
 <main class="flex justify-between h-[100vh]">
