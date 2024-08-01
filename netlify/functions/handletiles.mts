@@ -162,7 +162,13 @@ async function getUser(
   };
 }
 
-async function handleGameOver(roomId, userId, won, return_tile, server_board) {
+async function handleGameOver(
+  roomId: string,
+  userId: string,
+  won: boolean,
+  return_tile: any,
+  server_board: Array<Array<number>>,
+) {
   const channel = supabase.channel(`room:${roomId}`);
   console.log("Game over!");
 
@@ -196,7 +202,7 @@ async function handleGameOver(roomId, userId, won, return_tile, server_board) {
 }
 
 export const handler: Handler = async (event, context) => {
-  // Set this to false to allow the function to return before background operations complete
+  // Set this to false to prevent the function from waiting for the event loop to empty
   context.callbackWaitsForEmptyEventLoop = false;
 
   const body = JSON.parse(event.body ?? "");
@@ -255,8 +261,7 @@ export const handler: Handler = async (event, context) => {
     headers,
   };
 
-  // Awaiting this to try and ensure data consistency i guess
-  await Promise.all([
+  Promise.all([
     supabase.rpc("update_room_with_concurrency_check", {
       p_room_id: roomId,
       p_client_board: room.client_board,

@@ -227,7 +227,13 @@
                 },
                 (payload) => {
                     console.log(payload.new.client_board);
+                    console.log(payload.old.client_board);
                     if (!payload.new.client_board) return;
+                    // When the game first starts, a new board is formed which is full of unknown tiles,
+                    // and then its evaluated, resulting in two update requests in that short time.
+                    // To prevent showing the unknown board, we filter out the updates that don't have a previous
+                    // client_board as the unknown tile's update request always happens first
+                    if (!payload.old.client_board) return;
 
                     board = payload.new.client_board;
                 },
