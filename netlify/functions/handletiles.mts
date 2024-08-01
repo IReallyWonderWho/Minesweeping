@@ -202,9 +202,6 @@ async function handleGameOver(
 }
 
 export const handler: Handler = async (event, context) => {
-  // Set this to false to prevent the function from waiting for the event loop to empty
-  context.callbackWaitsForEmptyEventLoop = false;
-
   const body = JSON.parse(event.body ?? "");
   const accessToken = event.headers.authorization?.split("Bearer ")[1];
 
