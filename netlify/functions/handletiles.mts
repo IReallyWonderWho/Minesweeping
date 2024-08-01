@@ -258,6 +258,10 @@ export const handler: Handler = async (event, context) => {
     headers,
   };
 
+  if (won || ("x" in return_tile && return_tile.state === MINE_TILE)) {
+    handleGameOver(roomId, userId, won, return_tile, room.server_board);
+  }
+
   Promise.all([
     supabase.rpc("update_room_with_concurrency_check", {
       p_room_id: roomId,
@@ -265,9 +269,6 @@ export const handler: Handler = async (event, context) => {
       p_revealed_tiles: room.revealed_tiles + increment_by,
       p_players: room.players,
     }),
-    won || ("x" in return_tile && return_tile.state === MINE_TILE)
-      ? handleGameOver(roomId, userId, won, return_tile, room.server_board)
-      : Promise.resolve(),
   ]).catch((error) => console.error("Background update failed:", error));
 
   return response;
