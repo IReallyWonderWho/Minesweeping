@@ -259,7 +259,7 @@ export const handler: Handler = async (event, context) => {
   };
 
   if (won || ("x" in return_tile && return_tile.state === MINE_TILE)) {
-    handleGameOver(roomId, userId, won, return_tile, room.server_board);
+    await handleGameOver(roomId, userId, won, return_tile, room.server_board);
   }
 
   Promise.all([

@@ -6,6 +6,15 @@ export function getRandomInt(min: number, max: number) {
   return Math.floor(Math.random() * (maxFloored - minCeiled) + minCeiled); // The maximum is exclusive and the minimum is inclusive
 }
 
+/**
+ * Adds a space after every third character
+ * @param string
+ * @returns string
+ */
+export function addSpace(string: string) {
+  return string.replace(/(.{3})/, "$1 ").trim();
+}
+
 export function getRandomColor() {
   const H = getRandomInt(1, 360);
   const S = getRandomInt(0, 100);
@@ -33,18 +42,31 @@ export function getRandomHSL() {
 
 const BASE = 36;
 
+/**
+ * Converts a 6 letter string into a corresponding numerical value that can later be decoded
+ * @param string
+ * @returns number
+ */
 export function encode(s: string) {
-  return s.split("").reduce((acc, char) => {
-    if (char >= "0" && char <= "9") {
-      return acc * BASE + (char.charCodeAt(0) - "0".charCodeAt(0));
-    } else if (char >= "a" && char <= "z") {
-      return acc * BASE + (char.charCodeAt(0) - "a".charCodeAt(0) + 10);
-    } else {
-      throw new Error("Invalid character");
-    }
-  }, 0);
+  return s
+    .toLowerCase()
+    .split("")
+    .reduce((acc, char) => {
+      if (char >= "0" && char <= "9") {
+        return acc * BASE + (char.charCodeAt(0) - "0".charCodeAt(0));
+      } else if (char >= "a" && char <= "z") {
+        return acc * BASE + (char.charCodeAt(0) - "a".charCodeAt(0) + 10);
+      } else {
+        throw new Error("Invalid character");
+      }
+    }, 0);
 }
 
+/**
+ * Converts a numberical value created from the encode function back into the original string
+ * @param number
+ * @returns string
+ */
 export function decode(n: number): string {
   if (n < 0) throw new Error("Invalid input: number must be non-negative");
 
@@ -62,5 +84,5 @@ export function decode(n: number): string {
     n = Math.floor(n / BASE);
   }
 
-  return result;
+  return result.toUpperCase();
 }

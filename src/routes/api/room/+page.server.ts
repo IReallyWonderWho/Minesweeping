@@ -1,9 +1,9 @@
-import { roomExists } from "$lib/server/rooms";
+import { roomExists, createRoom } from "$lib/server/rooms";
 import { encode } from "$lib/utility";
 import { fail, redirect, type Actions } from "@sveltejs/kit";
 
 export const actions: Actions = {
-  default: async ({ request }) => {
+  join: async ({ request }) => {
     const data = await request.formData();
     const roomId = data.get("roomId");
 
@@ -15,14 +15,23 @@ export const actions: Actions = {
       return fail(400, {
         error: "Room id must be a string",
       });
-    const room_id = encode(roomId);
+    // Remove any spaces inside the string and convert to lowercase
+    const parsedRoomId = roomId.replace(/\s/g, "").toLowerCase();
+    const room_id = encode(parsedRoomId);
 
     const room = await roomExists(room_id);
 
     return room
-      ? redirect(303, `/rooms/${room_id}/playing/nickname`)
+      ? redirect(303, `/rooms/nickname?roomId=${room_id}`)
       : fail(404, {
           error: "Room not found",
         });
+  },
+  create: async ({ request }) => {
+    const data = await request.json();
+    const roomId = await createRoom(data.userId);
+
+    console.log(JSON.stringify(roomId));
+    return roomId;
   },
 };

@@ -1,4 +1,15 @@
 import { supabase } from "$lib/server/supabaseClient";
+import { encode } from "$lib/utility";
+
+function generateRoomId() {
+  const characters = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let result = "";
+  for (let i = 0; i < 6; i++) {
+    const randomIndex = Math.floor(Math.random() * characters.length);
+    result += characters[randomIndex];
+  }
+  return result;
+}
 
 export async function getBoards(room_id: number) {
   const { data } = await supabase
@@ -65,13 +76,31 @@ export async function roomExists(roomId: number) {
     .from("rooms")
     .select("id, started")
     .eq("id", roomId)
-    .single();
-
-  console.log(error);
+    .maybeSingle();
 
   if (!error) {
     return data;
   }
 
   return false;
+}
+
+export async function createRoom(hostId: string) {
+  const roomId = encode(generateRoomId());
+
+  const { error } = await supabase.from("rooms").insert({
+    id: roomId,
+    created_at: new Date().toISOString(),
+    host: hostId,
+    revealed_tiles: 0,
+    flags: {},
+    started: false,
+    rows_columns: 12,
+    mine_ratio: 6,
+    players: {},
+  });
+
+  if (error) return;
+
+  return roomId;
 }

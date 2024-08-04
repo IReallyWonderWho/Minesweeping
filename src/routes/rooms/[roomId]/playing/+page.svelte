@@ -10,7 +10,7 @@
     import ConfettiStage from "$lib/components/Confetti/ConfettiStage.svelte";
     import { supabase } from "$lib/supabaseClient";
     import { flags, confetti, windowRect, type roomData } from "$lib/stores";
-    import { clamp, decode } from "$lib/utility";
+    import { clamp, decode, addSpace } from "$lib/utility";
     import { createTempBoard } from "$lib/boardUtils";
 
     export let data: roomData;
@@ -209,7 +209,7 @@
 </script>
 
 <svelte:head>
-    <title>{decode(Number(roomId))} › Playing</title>
+    <title>{addSpace(decode(Number(roomId)))} › Playing</title>
 </svelte:head>
 <svelte:window on:resize={windowResized} />
 

@@ -13,11 +13,12 @@
     import Board from "$lib/components/BoardComponents/Board.svelte";
     import { createTempBoard, UNKNOWN_TILE, MINE_TILE } from "$lib/boardUtils";
     import BoardSettings from "$lib/components/BoardComponents/BoardSettings.svelte";
-    import { getRandomInt, decode } from "$lib/utility";
+    import { getRandomInt, decode, addSpace } from "$lib/utility";
 
     export let data: roomData;
 
     const roomId = $page.params["roomId"];
+    const stringRoomId = addSpace(decode(Number(roomId)));
     const roomChannel = supabase.channel(`room:${roomId}`, {
         config: {
             presence: { key: roomId },
@@ -157,6 +158,7 @@
             )
             .subscribe(async (status) => {
                 if (status !== "SUBSCRIBED") return;
+                console.log(data);
 
                 try {
                     const { nickname, color } = (await data.userPromise)
@@ -167,15 +169,16 @@
                         color,
                         user: await user_id,
                     });
-                } catch {
-                    goto(`/rooms/${roomId}/playing/nickname`);
+                } catch (error) {
+                    console.warn(error);
+                    goto(`/rooms/nickname?roomId=${roomId}`);
                 }
             });
     });
 </script>
 
 <svelte:head>
-    <title>{decode(Number(roomId))} › Lobby</title>
+    <title>{stringRoomId} › Lobby</title>
 </svelte:head>
 
 <main class="flex justify-between h-[100vh]">
@@ -183,7 +186,7 @@
         <div class="m-3 text-center">
             <h2 class="text-primary-900 mb-1 font-metropolis">Room code:</h2>
             <h1 class="text-primary-300 text-3xl font-bold font-metropolis">
-                XF6 HG7
+                {addSpace(stringRoomId)}
             </h1>
         </div>
         <Board

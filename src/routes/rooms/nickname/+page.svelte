@@ -3,36 +3,15 @@
     import { goto } from "$app/navigation";
     import { addToast } from "$lib/components/Toaster.svelte";
     import { supabase } from "$lib/supabaseClient";
-    import { getRandomHSL, decode } from "$lib/utility";
+    import { getRandomHSL, decode, addSpace } from "$lib/utility";
 
     export let form;
 
-    const roomId = $page.params["roomId"];
+    let roomId = $page.url.searchParams.get("roomId");
+    const creatingRoom = $page.url.searchParams.get("creating");
+    const title = addSpace(decode(Number(roomId)));
 
     let nickname = "";
-
-    function validatePlayerData(nickname: string) {
-        const errors: { nickname: string; isValid: boolean } = {
-            nickname: nickname,
-            isValid: false,
-        };
-
-        if (!nickname || nickname.trim().length < 3) {
-            errors.nickname = "Nickname must be at least 3 characters long";
-        }
-        if (nickname.trim().length > 20) {
-            errors.nickname = "Nickname must not exceed 20 characters";
-        }
-        if (!/^[a-zA-Z0-9_]+$/.test(nickname)) {
-            errors.nickname =
-                "Nickname can only contain letters, numbers, and underscores";
-        }
-
-        return {
-            isValid: Object.keys(errors).length === 0,
-            errors,
-        };
-    }
 
     $: if (form?.error) {
         addToast({
@@ -46,27 +25,47 @@
 
     async function makePlayer() {
         const color = getRandomHSL();
+        let { data: userData, error: playerError } =
+            await supabase.auth.getUser();
 
-        const { data, error } = await supabase.auth.signInAnonymously();
+        if (playerError) {
+            const { data, error } = await supabase.auth.signInAnonymously();
 
-        if (error) {
-            addToast({
-                data: {
-                    title: "Unable to sign in anonymously",
-                    description:
-                        "This may be a database issue, please try again",
-                    color: "red",
-                },
-            });
-            return;
+            if (error) {
+                addToast({
+                    data: {
+                        title: "Unable to sign in anonymously",
+                        description:
+                            "This may be a database issue, please try again",
+                        color: "red",
+                    },
+                });
+                return;
+            }
+
+            userData = data;
         }
 
-        const user_id = data.user?.id;
+        const user_id = userData.user?.id;
+
+        if (creatingRoom) {
+            const response = await fetch("/api/room?/create", {
+                method: "POST",
+                body: JSON.stringify({
+                    userId: user_id,
+                }),
+            });
+            const json = await response.json();
+            const data = JSON.parse(json.data);
+
+            roomId = data[0];
+        }
+
         const [{ error: joinError }, { data: roomData, error: roomError }] =
             await Promise.all([
                 supabase.from("room_players").insert({
-                    room_id: roomId,
                     user_id,
+                    room_id: roomId,
                     color,
                     nickname,
                 }),
@@ -98,7 +97,7 @@
 </script>
 
 <svelte:head>
-    <title>{decode(Number(roomId))} › Nickname</title>
+    <title>{creatingRoom ? "Room" : title} › Nickname</title>
 </svelte:head>
 
 <div class="hero min-h-screen bg-background">

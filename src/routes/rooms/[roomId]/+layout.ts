@@ -17,15 +17,19 @@ async function getData(roomId: number) {
   return !error ? data : undefined;
 }
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load: PageServerLoad = async ({ request, params }) => {
   const roomId = params["roomId"];
   console.log("what");
+  console.log(request);
 
   if (!roomId || typeof roomId !== "string") throw redirect(307, "/");
   let room_id = Number(roomId);
 
   const user = new Promise(async (resolve, reject) => {
     const { data, error } = await supabase.auth.getUser();
+
+    console.log(data);
+    console.log(error);
 
     if (error) return reject("User not found");
 
@@ -35,7 +39,10 @@ export const load: PageServerLoad = async ({ params }) => {
       .eq("user_id", data.user.id)
       .single();
 
-    if (playerError) return reject("User info not found");
+    if (playerError) {
+      console.warn(playerError);
+      return reject("User info not found");
+    }
 
     const returnData = {
       playerData,
