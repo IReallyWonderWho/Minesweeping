@@ -38,3 +38,5 @@ export const mineRatio = writable([6]);
 export const confetti = writable<[boolean]>([false]);
 
 export const windowRect = writable<DOMRect | undefined>();
+
+export const isHost = writable<boolean>(false);

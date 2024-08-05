@@ -231,9 +231,9 @@
                     if (!payload.new.client_board) return;
                     // When the game first starts, a new board is formed which is full of unknown tiles,
                     // and then its evaluated, resulting in two update requests in that short time.
-                    // To prevent showing the unknown board, we filter out the updates that don't have a previous
-                    // client_board as the unknown tile's update request always happens first
-                    if (!payload.old.client_board) return;
+                    // To prevent showing the unknown board, we filter out the updates that don't have any revealed
+                    // tiles
+                    if (!payload.new.revealed_tiles) return;
 
                     board = payload.new.client_board;
                 },

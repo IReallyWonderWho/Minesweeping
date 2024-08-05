@@ -7,6 +7,7 @@ target/
 Cargo.lock
 .env
 .env.*
+.DS_Store
 !.env.example
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
