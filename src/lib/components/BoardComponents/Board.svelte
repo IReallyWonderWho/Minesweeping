@@ -14,6 +14,7 @@
     export let board: Array<Array<number>>;
     export let element: Element;
     export let correctBoard: Array<Array<number>> | undefined;
+    export let isLobby: boolean = false;
 
     const channel = supabase.channel(`tile:${roomId}`);
 
@@ -174,71 +175,73 @@
     }
 
     onMount(() => {
-        channel
-            .on(
-                "broadcast",
-                {
-                    event: "tileUpdated",
-                },
-                ({ payload }) => {
-                    const returned_tile = JSON.parse(payload.tile);
+        if (isLobby) {
+            channel
+                .on(
+                    "broadcast",
+                    {
+                        event: "tileUpdated",
+                    },
+                    ({ payload }) => {
+                        const returned_tile = JSON.parse(payload.tile);
 
-                    if (!board) return;
+                        if (!board) return;
 
-                    if (returned_tile["x"] !== undefined) {
-                        const { x, y, state } = returned_tile;
+                        if (returned_tile["x"] !== undefined) {
+                            const { x, y, state } = returned_tile;
 
-                        // If a tile is being flagged, make sure it's not in any invalid
-                        // positions
-                        if (
-                            state === FLAGGED_TILE &&
-                            board[x][y] === UNKNOWN_TILE
-                        ) {
-                            $flags.set(`${x},${y}`, true);
-                            $flags = $flags;
-
-                            board[x][y] = FLAGGED_TILE;
-                        } else if (state !== FLAGGED_TILE) {
-                            if (board[x][y] === FLAGGED_TILE) {
-                                $flags.delete(`${x},${y}`);
+                            // If a tile is being flagged, make sure it's not in any invalid
+                            // positions
+                            if (
+                                state === FLAGGED_TILE &&
+                                board[x][y] === UNKNOWN_TILE
+                            ) {
+                                $flags.set(`${x},${y}`, true);
                                 $flags = $flags;
+
+                                board[x][y] = FLAGGED_TILE;
+                            } else if (state !== FLAGGED_TILE) {
+                                if (board[x][y] === FLAGGED_TILE) {
+                                    $flags.delete(`${x},${y}`);
+                                    $flags = $flags;
+                                }
+
+                                board[x][y] = state;
                             }
+                        } else {
+                            for (const [id, state] of new Map(
+                                Object.entries(returned_tile),
+                            )) {
+                                const [_x, _y] = id.split(",");
+                                const [x, y] = [Number(_x), Number(_y)];
 
-                            board[x][y] = state;
+                                board[x][y] = state as number;
+                            }
                         }
-                    } else {
-                        for (const [id, state] of new Map(
-                            Object.entries(returned_tile),
-                        )) {
-                            const [_x, _y] = id.split(",");
-                            const [x, y] = [Number(_x), Number(_y)];
+                    },
+                )
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "UPDATE",
+                        schema: "public",
+                        table: "rooms",
+                    },
+                    (payload) => {
+                        console.log(payload.new.client_board);
+                        console.log(payload.old.client_board);
+                        if (!payload.new.client_board) return;
+                        // When the game first starts, a new board is formed which is full of unknown tiles,
+                        // and then its evaluated, resulting in two update requests in that short time.
+                        // To prevent showing the unknown board, we filter out the updates that don't have any revealed
+                        // tiles
+                        if (!payload.new.revealed_tiles) return;
 
-                            board[x][y] = state as number;
-                        }
-                    }
-                },
-            )
-            .on(
-                "postgres_changes",
-                {
-                    event: "UPDATE",
-                    schema: "public",
-                    table: "rooms",
-                },
-                (payload) => {
-                    console.log(payload.new.client_board);
-                    console.log(payload.old.client_board);
-                    if (!payload.new.client_board) return;
-                    // When the game first starts, a new board is formed which is full of unknown tiles,
-                    // and then its evaluated, resulting in two update requests in that short time.
-                    // To prevent showing the unknown board, we filter out the updates that don't have any revealed
-                    // tiles
-                    if (!payload.new.revealed_tiles) return;
-
-                    board = payload.new.client_board;
-                },
-            )
-            .subscribe();
+                        board = payload.new.client_board;
+                    },
+                )
+                .subscribe();
+        }
 
         return async () => {
             await supabase.removeChannel(channel);

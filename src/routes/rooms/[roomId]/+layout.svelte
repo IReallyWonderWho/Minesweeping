@@ -5,6 +5,8 @@
     import { isHost, type roomData } from "$lib/stores";
     import { onMount } from "svelte";
 
+    export let data: roomData;
+
     const roomId = $page.params["roomId"];
 
     let event: NodeJS.Timeout;
@@ -21,16 +23,20 @@
         console.log("Room ping updated successfully");
     }
 
-    /*onMount(() => {
+    onMount(() => {
         supabase.auth.getUser().then(async ({ data: playerData, error }) => {
+            console.log(data);
             if (error) return;
 
             const hostId = (await data.roomPromise).host;
 
             if (playerData.user?.id === hostId) {
+                console.log("hello");
+                pingRoom();
+                event = setInterval(pingRoom, 60000);
             }
         });
-    }); */
+    });
 </script>
 
 <div class="navbar absolute">

@@ -21,6 +21,7 @@ interface Room {
   players: Record<string, string>;
   rows_columns: number;
   mine_ratio: number;
+  version: number;
 }
 
 type SuccessResult = {
@@ -45,7 +46,7 @@ async function getRoomData(
   const { data, error } = await supabase
     .from("rooms")
     .select(
-      "client_board, revealed_tiles, rows_columns, mine_ratio, started, players, serverboard(server_board)",
+      "client_board, revealed_tiles, rows_columns, mine_ratio, started, players, version, serverboard(server_board)",
     )
     .eq("id", roomId)
     .single();
@@ -93,6 +94,7 @@ async function getRoomData(
       players: data.players,
       rows_columns: data.rows_columns,
       mine_ratio: data.mine_ratio,
+      version: data.version,
     },
   };
 }
@@ -201,6 +203,60 @@ async function handleGameOver(
   await supabase.removeChannel(channel);
 }
 
+async function updateRoomState(
+  roomId: string,
+  room: Room,
+  increment_by: number,
+  players: Record<string, string>,
+  version: number,
+) {
+  console.log("Bruh");
+  const { error } = await supabase
+    .from("rooms")
+    .update({
+      client_board: room.client_board,
+      revealed_tiles: room.revealed_tiles + increment_by,
+      version: version + 1,
+      players,
+    })
+    .match({ id: roomId, version: version });
+
+  console.log(error);
+  if (error) {
+    // Update failed due to concurrent modification
+    console.log("BRUH");
+    throw new Error("Concurrent modification detected");
+  }
+}
+
+type LockResult = [undefined, string] | [string, undefined];
+
+async function lockRoom(roomId: string): Promise<LockResult> {
+  const lockId = uuidv4();
+  const lockDuration = "1 seconds"; // Adjust as needed
+
+  const { data: locked, error } = await supabase.rpc("acquire_room_lock", {
+    p_room_id: roomId,
+    p_locked_by: lockId,
+    p_lock_duration: lockDuration,
+  });
+
+  console.log(error);
+
+  if (error) return [undefined, "Failed to aquire lock"];
+  if (!locked) return [undefined, "Lock inuse"];
+
+  return [lockId, undefined];
+}
+
+async function removeLock(roomId: string, lockId: string) {
+  console.log("releasing lock");
+  await supabase.rpc("release_room_lock", {
+    p_room_id: roomId,
+    p_locked_by: lockId,
+  });
+}
+
 export const handler: Handler = async (event, context) => {
   const body = JSON.parse(event.body ?? "");
   const accessToken = event.headers.authorization?.split("Bearer ")[1];
@@ -218,6 +274,28 @@ export const handler: Handler = async (event, context) => {
     return {
       statusCode: 400,
     };
+
+  let lockId: string;
+  let amount = 0;
+
+  while (true) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const [id, error] = await lockRoom(roomId);
+
+    if (id && !error) {
+      lockId = id;
+      break;
+    }
+
+    amount++;
+    console.log("Lock moment");
+
+    if (amount >= 5)
+      return {
+        statusCode: 500,
+      };
+  }
 
   const result = await getRoomData(roomId, x, y);
 
@@ -263,13 +341,9 @@ export const handler: Handler = async (event, context) => {
   }
 
   Promise.all([
-    supabase.rpc("update_room_with_concurrency_check", {
-      p_room_id: roomId,
-      p_client_board: room.client_board,
-      p_revealed_tiles: room.revealed_tiles + increment_by,
-      p_players: room.players,
-    }),
-  ]).catch((error) => console.error("Background update failed:", error));
+    updateRoomState(roomId, room, increment_by, room.players, room.version),
+    removeLock(roomId, lockId),
+  ]);
 
   return response;
 };
