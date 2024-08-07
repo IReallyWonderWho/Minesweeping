@@ -1,5 +1,5 @@
 import type { Handler } from "@netlify/functions";
-import { SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
 import {
   generateSolvedBoard,
@@ -9,7 +9,7 @@ import {
 } from "../lib/board";
 import cookie from "cookie";
 
-const supabase = new SupabaseClient(
+const supabase = createClient(
   process.env.PUBLIC_SUPABASE_URL ?? "",
   process.env.SUPABASE_PRIVATE_API_KEY ?? "",
 );
@@ -21,7 +21,6 @@ interface Room {
   players: Record<string, string>;
   rows_columns: number;
   mine_ratio: number;
-  version: number;
 }
 
 type SuccessResult = {
@@ -46,7 +45,7 @@ async function getRoomData(
   const { data, error } = await supabase
     .from("rooms")
     .select(
-      "client_board, revealed_tiles, rows_columns, mine_ratio, started, players, version, serverboard(server_board)",
+      "client_board, revealed_tiles, rows_columns, mine_ratio, started, players, serverboard(server_board)",
     )
     .eq("id", roomId)
     .single();
@@ -94,7 +93,6 @@ async function getRoomData(
       players: data.players,
       rows_columns: data.rows_columns,
       mine_ratio: data.mine_ratio,
-      version: data.version,
     },
   };
 }
@@ -123,35 +121,15 @@ type GetUserDataResult = UserSuccess | UserError;
 async function getUser(
   session: string | undefined,
   accessToken: string,
-  room: Room,
 ): Promise<GetUserDataResult> {
-  if (!session || !room.players[session]) {
-    const { data: userData, error } = await supabase.auth.getUser(accessToken);
+  const { data: userData, error } = await supabase.auth.getUser(accessToken);
 
-    if (error || !userData.user) {
-      return {
-        success: false,
-        error: {
-          statusCode: 401,
-          body: JSON.stringify({ error: "Invalid token" }),
-        },
-      };
-    }
-
-    session = uuidv4();
-    room.players[session] = userData.user.id;
-
+  if (error || !userData.user) {
     return {
-      success: true,
-      data: {
-        headers: {
-          "Set-Cookie": cookie.serialize("Session", session, {
-            httpOnly: true,
-            secure: true,
-            path: "/",
-          }),
-        },
-        userId: userData.user.id,
+      success: false,
+      error: {
+        statusCode: 401,
+        body: JSON.stringify({ error: "Invalid token" }),
       },
     };
   }
@@ -159,7 +137,7 @@ async function getUser(
   return {
     success: true,
     data: {
-      userId: room.players[session],
+      userId: userData.user.id,
     },
   };
 }
@@ -208,25 +186,15 @@ async function updateRoomState(
   room: Room,
   increment_by: number,
   players: Record<string, string>,
-  version: number,
 ) {
-  console.log("Bruh");
-  const { error } = await supabase
+  await supabase
     .from("rooms")
     .update({
       client_board: room.client_board,
       revealed_tiles: room.revealed_tiles + increment_by,
-      version: version + 1,
       players,
     })
-    .match({ id: roomId, version: version });
-
-  console.log(error);
-  if (error) {
-    // Update failed due to concurrent modification
-    console.log("BRUH");
-    throw new Error("Concurrent modification detected");
-  }
+    .eq("id", roomId);
 }
 
 type LockResult = [undefined, string] | [string, undefined];
@@ -240,8 +208,6 @@ async function lockRoom(roomId: string): Promise<LockResult> {
     p_locked_by: lockId,
     p_lock_duration: lockDuration,
   });
-
-  console.log(error);
 
   if (error) return [undefined, "Failed to aquire lock"];
   if (!locked) return [undefined, "Lock inuse"];
@@ -278,9 +244,8 @@ export const handler: Handler = async (event, context) => {
   let lockId: string;
   let amount = 0;
 
+  // A locking mechanism, trying to retry 5 times before failing
   while (true) {
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
     const [id, error] = await lockRoom(roomId);
 
     if (id && !error) {
@@ -289,7 +254,7 @@ export const handler: Handler = async (event, context) => {
     }
 
     amount++;
-    console.log("Lock moment");
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
     if (amount >= 5)
       return {
@@ -297,15 +262,15 @@ export const handler: Handler = async (event, context) => {
       };
   }
 
-  const result = await getRoomData(roomId, x, y);
+  const [result, userResult] = await Promise.all([
+    getRoomData(roomId, x, y),
+    getUser(Session, accessToken),
+  ]);
 
   if (!result.success) return result.error;
+  if (!userResult.success) return userResult.error;
 
   const room = result.data;
-
-  let userResult = await getUser(Session, accessToken, room);
-
-  if (!userResult.success) return userResult.error;
 
   const { headers, userId } = userResult.data;
 
@@ -341,7 +306,7 @@ export const handler: Handler = async (event, context) => {
   }
 
   Promise.all([
-    updateRoomState(roomId, room, increment_by, room.players, room.version),
+    updateRoomState(roomId, room, increment_by, room.players),
     removeLock(roomId, lockId),
   ]);
 

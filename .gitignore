@@ -11,7 +11,7 @@ Cargo.lock
 !.env.example
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
-.vercel
+/.vite
 
 # Local Netlify folder
 .netlify
