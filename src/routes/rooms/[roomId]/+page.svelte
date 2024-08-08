@@ -1,6 +1,6 @@
 <script lang="ts">
     import { page } from "$app/stores";
-    import { goto } from "$app/navigation";
+    import { goto, invalidateAll } from "$app/navigation";
     import { onMount } from "svelte";
     import PlayerList from "$lib/components/Player/LobbyPlayerList.svelte";
     import { supabase } from "$lib/supabaseClient";
@@ -69,18 +69,26 @@
 
     async function onStart() {
         // This is secured through postgres' RLS
-        await supabase
-            .from("rooms")
-            .update({
-                started: true,
-                rows_columns: $numberOfRowsColumns[0],
-                mine_ratio: $mineRatio[0],
-                client_board: null,
-                revealed_tiles: 0,
-                flags: {},
-                created_at: new Date().toISOString(),
-            })
-            .eq("id", roomId);
+        console.log("Hello!");
+        await Promise.all([
+            supabase
+                .from("rooms")
+                .update({
+                    started: true,
+                    rows_columns: $numberOfRowsColumns[0],
+                    mine_ratio: $mineRatio[0],
+                    client_board: null,
+                    revealed_tiles: 0,
+                    created_at: new Date().toISOString(),
+                })
+                .eq("id", roomId),
+            supabase
+                .from("flags")
+                .update({
+                    flags: {},
+                })
+                .eq("room_id", roomId),
+        ]);
     }
 
     onMount(() => {
@@ -150,8 +158,12 @@
                 },
                 async (payload) => {
                     if (payload.new.started) {
+                        console.log("Redirecting");
                         await goto(`/rooms/${roomId}/playing/`, {
                             invalidateAll: true,
+                        }).catch((reason) => {
+                            console.warn(reason);
+                            invalidateAll();
                         });
                     }
                 },

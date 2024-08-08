@@ -1,6 +1,6 @@
 <script lang="ts">
     import { page } from "$app/stores";
-    import { goto } from "$app/navigation";
+    import { goto, invalidateAll } from "$app/navigation";
     import { addToast } from "$lib/components/Toaster.svelte";
     import { supabase } from "$lib/supabaseClient";
     import { getRandomHSL, decode, addSpace } from "$lib/utility";
@@ -114,10 +114,12 @@
             ]);
 
         if (joinError || roomError) {
+            console.log(joinError);
+            console.log(roomError);
             addToast({
                 data: {
                     title: "Unable to create player",
-                    description: "Your nickname might be invalid",
+                    description: `Supabase error: ${joinError?.message}`,
                     color: "red",
                 },
             });
@@ -129,7 +131,10 @@
             {
                 invalidateAll: true,
             },
-        );
+        ).catch((reason) => {
+            console.warn(reason);
+            invalidateAll();
+        });
     }
 </script>
 

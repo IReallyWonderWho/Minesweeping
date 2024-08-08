@@ -133,8 +133,14 @@ export const POST: RequestHandler = async ({ request }) => {
     getUser(accessToken),
   ]);
 
-  if (!result.success) return result.error;
-  if (!userResult.success) return userResult.error;
+  if (!result.success)
+    return new Response(undefined, {
+      status: 500,
+    });
+  if (!userResult.success)
+    return new Response(undefined, {
+      status: 500,
+    });
 
   const room = result.data;
 

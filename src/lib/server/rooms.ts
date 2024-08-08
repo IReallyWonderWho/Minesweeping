@@ -26,7 +26,6 @@ export interface Room {
   client_board: Array<Array<number>>;
   server_board: Array<Array<number>>;
   revealed_tiles: number;
-  players: Record<string, string>;
   rows_columns: number;
   mine_ratio: number;
 }
@@ -53,7 +52,7 @@ export async function getRoomData(
   const { data, error } = await supabase
     .from("rooms")
     .select(
-      "client_board, revealed_tiles, rows_columns, mine_ratio, started, players, serverboard(server_board)",
+      "client_board, revealed_tiles, rows_columns, mine_ratio, started, serverboard(server_board)",
     )
     .eq("id", roomId)
     .single();
@@ -98,7 +97,6 @@ export async function getRoomData(
       client_board,
       server_board,
       revealed_tiles: data.revealed_tiles,
-      players: data.players,
       rows_columns: data.rows_columns,
       mine_ratio: data.mine_ratio,
     },
@@ -184,17 +182,25 @@ export async function roomExists(roomId: number) {
 export async function createRoom(hostId: string) {
   const roomId = encode(generateRoomId());
 
-  const { error } = await supabase.from("rooms").insert({
-    id: roomId,
-    created_at: new Date().toISOString(),
-    host: hostId,
-    revealed_tiles: 0,
-    flags: {},
-    started: false,
-    rows_columns: 12,
-    mine_ratio: 6,
-    players: {},
-  });
+  console.log("hello");
+
+  const [{ error }] = await Promise.all([
+    supabase.from("rooms").insert({
+      id: roomId,
+      created_at: new Date().toISOString(),
+      host: hostId,
+      revealed_tiles: 0,
+      started: false,
+      rows_columns: 12,
+      mine_ratio: 6,
+    }),
+    supabase.from("flags").insert({
+      room_id: roomId,
+      flags: {},
+    }),
+  ]);
+
+  console.log(error);
 
   if (error) return;
 
