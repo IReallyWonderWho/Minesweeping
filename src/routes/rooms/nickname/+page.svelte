@@ -23,20 +23,44 @@
         });
     }
 
+    type ValidateResult = [true, undefined] | [false, string];
+
+    function validateNickname(nickname: string): ValidateResult {
+        if (!nickname || nickname.trim().length < 3) {
+            return [false, "Nickname must be at least 3 characters long"];
+        }
+        if (nickname.trim().length > 12) {
+            return [false, "Nickname must not exceed 12 characters"];
+        }
+        if (!/^[a-zA-Z0-9_ ]+$/.test(nickname.trim())) {
+            return [
+                false,
+                "Nickname can only contain letters, numbers, underscores, and spaces",
+            ];
+        }
+
+        return [true, undefined];
+    }
+
     async function makePlayer() {
         const color = getRandomHSL();
         let { data: userData, error: playerError } =
             await supabase.auth.getUser();
 
         if (playerError) {
-            const { data, error } = await supabase.auth.signInAnonymously();
+            const { data, error } = await supabase.auth.signInAnonymously({
+                options: {
+                    data: {
+                        room_id: roomId,
+                    },
+                },
+            });
 
             if (error) {
                 addToast({
                     data: {
                         title: "Unable to sign in anonymously",
-                        description:
-                            "This may be a database issue, please try again",
+                        description: `Supabase error: ${error}`,
                         color: "red",
                     },
                 });
@@ -44,6 +68,19 @@
             }
 
             userData = data;
+        }
+
+        const [valid, error] = validateNickname(nickname);
+
+        if (!valid) {
+            addToast({
+                data: {
+                    title: "Invalid nickname",
+                    description: error,
+                    color: "red",
+                },
+            });
+            return;
         }
 
         const user_id = userData.user?.id;
@@ -63,7 +100,7 @@
 
         const [{ error: joinError }, { data: roomData, error: roomError }] =
             await Promise.all([
-                supabase.from("room_players").insert({
+                supabase.from("room_players").upsert({
                     user_id,
                     room_id: roomId,
                     color,

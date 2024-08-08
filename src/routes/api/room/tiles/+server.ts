@@ -1,146 +1,14 @@
-import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
-import {
-  generateSolvedBoard,
-  MINE_TILE,
-  returnTile,
-  didGameEnd,
-} from "../lib/board";
-import cookie from "cookie";
+import type { RequestHandler } from "./$types";
+import { MINE_TILE, returnTile, didGameEnd } from "$lib/server/board";
+import { getRoomData, type Room, getUser } from "$lib/server/rooms";
+import { json } from "@sveltejs/kit";
 
 const supabase = createClient(
   process.env.PUBLIC_SUPABASE_URL ?? "",
   process.env.SUPABASE_PRIVATE_API_KEY ?? "",
 );
-
-interface Room {
-  client_board: Array<Array<number>>;
-  server_board: Array<Array<number>>;
-  revealed_tiles: number;
-  players: Record<string, string>;
-  rows_columns: number;
-  mine_ratio: number;
-}
-
-type SuccessResult = {
-  success: true;
-  data: Room;
-};
-
-type ErrorResult = {
-  success: false;
-  error: {
-    statusCode: number;
-  };
-};
-
-type GetRoomDataResult = SuccessResult | ErrorResult;
-
-async function getRoomData(
-  roomId: string,
-  x: number,
-  y: number,
-): Promise<GetRoomDataResult> {
-  const { data, error } = await supabase
-    .from("rooms")
-    .select(
-      "client_board, revealed_tiles, rows_columns, mine_ratio, started, players, serverboard(server_board)",
-    )
-    .eq("id", roomId)
-    .single();
-
-  if (error) return { success: false, error: { statusCode: 500 } };
-  if (!data.started) return { success: false, error: { statusCode: 404 } };
-
-  let client_board = data.client_board;
-  // @ts-ignore
-  let server_board = data.serverboard?.server_board;
-
-  if (!client_board || !server_board) {
-    const [server, client] = generateSolvedBoard(
-      data.rows_columns,
-      x,
-      y,
-      data.mine_ratio,
-    );
-
-    client_board = client;
-    server_board = server;
-
-    await Promise.all([
-      supabase.from("serverboard").upsert({
-        room_id: roomId,
-        server_board,
-      }),
-      supabase
-        .from("rooms")
-        .update({
-          client_board,
-          revealed_tiles: 0,
-          flags: {},
-        })
-        .eq("id", roomId),
-    ]);
-  }
-
-  return {
-    success: true,
-    data: {
-      client_board,
-      server_board,
-      revealed_tiles: data.revealed_tiles,
-      players: data.players,
-      rows_columns: data.rows_columns,
-      mine_ratio: data.mine_ratio,
-    },
-  };
-}
-
-type UserSuccess = {
-  success: true;
-  data: {
-    headers?: Record<string, any>;
-    userId: string;
-  };
-};
-
-type UserError = {
-  success: false;
-  error: {
-    statusCode: number;
-    body?: string;
-  };
-};
-
-type GetUserDataResult = UserSuccess | UserError;
-
-/**
-    Used to check if an user is authenticated and return the User Id if authenticated
-*/
-async function getUser(
-  session: string | undefined,
-  accessToken: string,
-): Promise<GetUserDataResult> {
-  const { data: userData, error } = await supabase.auth.getUser(accessToken);
-
-  if (error || !userData.user) {
-    return {
-      success: false,
-      error: {
-        statusCode: 401,
-        body: JSON.stringify({ error: "Invalid token" }),
-      },
-    };
-  }
-
-  return {
-    success: true,
-    data: {
-      userId: userData.user.id,
-    },
-  };
-}
 
 async function handleGameOver(
   roomId: string,
@@ -223,11 +91,9 @@ async function removeLock(roomId: string, lockId: string) {
   });
 }
 
-export const handler: Handler = async (event, context) => {
-  const body = JSON.parse(event.body ?? "");
-  const accessToken = event.headers.authorization?.split("Bearer ")[1];
-
-  let { Session } = cookie.parse(event.headers.cookie ?? "");
+export const POST: RequestHandler = async ({ request }) => {
+  const accessToken = request.headers.get("authorization")?.split("Bearer ")[1];
+  const body = await request.json();
 
   const { x, y, roomId } = body;
 
@@ -237,9 +103,9 @@ export const handler: Handler = async (event, context) => {
     roomId === undefined ||
     !accessToken
   )
-    return {
-      statusCode: 400,
-    };
+    return new Response("Missing parameters", {
+      status: 400,
+    });
 
   let lockId: string;
   let amount = 0;
@@ -257,14 +123,14 @@ export const handler: Handler = async (event, context) => {
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     if (amount >= 5)
-      return {
-        statusCode: 500,
-      };
+      return new Response("Timed out", {
+        status: 500,
+      });
   }
 
   const [result, userResult] = await Promise.all([
     getRoomData(roomId, x, y),
-    getUser(Session, accessToken),
+    getUser(accessToken),
   ]);
 
   if (!result.success) return result.error;
@@ -272,7 +138,7 @@ export const handler: Handler = async (event, context) => {
 
   const room = result.data;
 
-  const { headers, userId } = userResult.data;
+  const { userId } = userResult.data;
 
   const [shouldIncrement, return_tile] = returnTile(
     room.server_board,
@@ -292,14 +158,11 @@ export const handler: Handler = async (event, context) => {
     room.mine_ratio,
   );
 
-  const response = {
-    body:
-      "x" in return_tile
-        ? JSON.stringify(return_tile)
-        : JSON.stringify(Object.fromEntries(return_tile)),
-    statusCode: 200,
-    headers,
-  };
+  const response = new Response(
+    "x" in return_tile
+      ? JSON.stringify(return_tile)
+      : JSON.stringify(Object.fromEntries(return_tile)),
+  );
 
   if (won || ("x" in return_tile && return_tile.state === MINE_TILE)) {
     await handleGameOver(roomId, userId, won, return_tile, room.server_board);

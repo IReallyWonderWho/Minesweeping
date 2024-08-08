@@ -9,11 +9,13 @@ async function getData(roomId: number) {
   const { data, error } = await supabase
     .from("rooms")
     .select(
-      "client_board, created_at, flags, started, rows_columns, mine_ratio, host",
+      "client_board, created_at, started, rows_columns, mine_ratio, host, flags(room_id, flags)",
     )
     .eq("id", roomId)
     .single();
 
+  console.log("bruh");
+  console.log(data);
   return !error ? data : undefined;
 }
 
@@ -27,9 +29,6 @@ export const load: PageServerLoad = async ({ request, params }) => {
 
   const user = new Promise(async (resolve, reject) => {
     const { data, error } = await supabase.auth.getUser();
-
-    console.log(data);
-    console.log(error);
 
     if (error) return reject("User not found");
 

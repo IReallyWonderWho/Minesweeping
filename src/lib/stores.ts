@@ -4,7 +4,9 @@ export interface roomData {
   roomPromise: Promise<{
     client_board: Array<Array<number>> | undefined;
     created_at: string;
-    flags: Map<string, boolean>;
+    flags: {
+      flags: Map<string, boolean>;
+    };
     started: boolean;
     rows_columns: number;
     mine_ratio: number;

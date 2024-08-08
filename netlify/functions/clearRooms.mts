@@ -1,4 +1,4 @@
-import type { Handler, Config } from "@netlify/functions";
+import type { Config } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(

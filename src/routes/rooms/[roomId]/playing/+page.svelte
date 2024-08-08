@@ -94,7 +94,7 @@
     onMount(() => {
         data.roomPromise.then((room) => {
             if (!room.started) return goto(`/rooms/${roomId}`);
-            $flags = new Map(Object.entries(room.flags ?? {}));
+            $flags = new Map(Object.entries(room.flags.flags ?? {}));
         });
         // Set up database connections && presence
         // This is really ugly but i'm too lazy to change it for now

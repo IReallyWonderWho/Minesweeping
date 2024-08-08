@@ -36,11 +36,11 @@
                 $flags.delete(`${x},${y}`);
 
                 supabase
-                    .from("rooms")
+                    .from("flags")
                     .update({
                         flags: Object.fromEntries($flags),
                     })
-                    .eq("id", roomId);
+                    .eq("room_id", roomId);
 
                 continue;
             }
@@ -69,7 +69,7 @@
 
         const accessToken = data.session?.access_token;
 
-        const response = await fetch("/.netlify/functions/handletiles", {
+        const response = await fetch("/api/room/tiles", {
             method: "POST",
             body: JSON.stringify({
                 x,
@@ -146,11 +146,11 @@
         });
 
         await supabase
-            .from("rooms")
+            .from("flags")
             .update({
                 flags: Object.fromEntries($flags),
             })
-            .eq("id", roomId);
+            .eq("room_id", roomId);
     }
 
     async function gameEnded(correctBoard: Array<Array<number>> | undefined) {
