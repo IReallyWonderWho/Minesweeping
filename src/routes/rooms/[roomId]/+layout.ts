@@ -4,18 +4,18 @@ import { supabase } from "$lib/supabaseClient";
 
 export const ssr = false;
 
-// TODO secure room_players with RLS soon
 async function getData(roomId: number) {
   const { data, error } = await supabase
     .from("rooms")
     .select(
-      "client_board, created_at, started, rows_columns, mine_ratio, host, flags(room_id, flags)",
+      "client_board, created_at, started, rows_columns, mine_ratio, host, flags(flags)",
     )
     .eq("id", roomId)
     .single();
 
   console.log("bruh");
   console.log(data);
+  console.log(error);
   return !error ? data : undefined;
 }
 

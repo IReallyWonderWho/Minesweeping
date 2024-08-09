@@ -29,11 +29,15 @@ async function handleGameOver(
     supabase.from("rooms").update({
       client_board: null,
       revealed_tiles: 0,
-      flags: {},
       started: false,
-      players: {},
     }),
     supabase.from("serverboard").delete().eq("room_id", roomId),
+    supabase
+      .from("flags")
+      .update({
+        flags: {},
+      })
+      .eq("room_id", roomId),
   ]);
 
   await channel.send({
@@ -53,14 +57,12 @@ async function updateRoomState(
   roomId: string,
   room: Room,
   increment_by: number,
-  players: Record<string, string>,
 ) {
   await supabase
     .from("rooms")
     .update({
       client_board: room.client_board,
       revealed_tiles: room.revealed_tiles + increment_by,
-      players,
     })
     .eq("id", roomId);
 }
@@ -175,7 +177,7 @@ export const POST: RequestHandler = async ({ request }) => {
   }
 
   Promise.all([
-    updateRoomState(roomId, room, increment_by, room.players),
+    updateRoomState(roomId, room, increment_by),
     removeLock(roomId, lockId),
   ]);
 

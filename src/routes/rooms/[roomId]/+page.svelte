@@ -157,6 +157,7 @@
                     table: "rooms",
                 },
                 async (payload) => {
+                    console.log(payload);
                     if (payload.new.started) {
                         console.log("Redirecting");
                         await goto(`/rooms/${roomId}/playing/`, {

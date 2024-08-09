@@ -113,28 +113,35 @@
                     .single(),
             ]);
 
-        if (joinError || roomError) {
-            console.log(joinError);
-            console.log(roomError);
+        if (joinError) {
+            console.warn(joinError);
             addToast({
                 data: {
                     title: "Unable to create player",
-                    description: `Supabase error: ${joinError?.message}`,
+                    description: `Supabase error: ${joinError.message}`,
                     color: "red",
                 },
             });
             return;
         }
+        if (roomError) {
+            console.warn(roomError);
+            addToast({
+                data: {
+                    title: "Unable to fetch room",
+                    description: `Supabase error: ${roomError.message}`,
+                    color: "red,",
+                },
+            });
+            return;
+        }
 
-        goto(
+        await goto(
             roomData.started ? `/rooms/${roomId}/playing` : `/rooms/${roomId}`,
             {
                 invalidateAll: true,
             },
-        ).catch((reason) => {
-            console.warn(reason);
-            invalidateAll();
-        });
+        );
     }
 </script>
 

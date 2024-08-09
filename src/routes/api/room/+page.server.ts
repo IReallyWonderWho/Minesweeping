@@ -28,10 +28,12 @@ export const actions: Actions = {
         });
   },
   create: async ({ request }) => {
+    const token = request.headers.get("authorization")?.split("Bearer ");
     const data = await request.json();
     const roomId = await createRoom(data.userId);
 
     console.log(JSON.stringify(roomId));
+    console.log(token);
     return roomId;
   },
 };
