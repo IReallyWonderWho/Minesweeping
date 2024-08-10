@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { longpress } from "$lib/actions";
     import Icon from "$lib/components/Icon.svelte";
 
     export let postTile: (x: number, y: number) => void;
@@ -55,6 +56,8 @@
 <button
     class={`${color} ${text_color} flex justify-self-stretch items-center justify-center text-lg font-metropolis font-semibold`}
     style={$$props.style}
+    use:longpress
+    on:longpress={flag}
     on:contextmenu|preventDefault={flag}
     on:click|preventDefault={click}
 >
