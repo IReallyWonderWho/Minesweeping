@@ -54,6 +54,7 @@
 <!--Disable right click on the buttons by preventing default on contextmenu-->
 <button
     class={`${color} ${text_color} flex justify-self-stretch items-center justify-center text-lg font-metropolis font-semibold`}
+    style={$$props.style}
     on:contextmenu|preventDefault={flag}
     on:click|preventDefault={click}
 >

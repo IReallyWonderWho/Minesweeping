@@ -170,7 +170,10 @@
                 },
             )
             .subscribe(async (status) => {
-                if (status !== "SUBSCRIBED") return;
+                if (status !== "SUBSCRIBED") {
+                    console.warn(status);
+                    return;
+                }
                 console.log(data);
 
                 try {
@@ -204,7 +207,7 @@
         </div>
         <Board
             bind:element
-            class="max-h-[400px]"
+            class="max-w-[400px]"
             correctBoard={undefined}
             {board}
             started={false}
@@ -224,5 +227,5 @@
             {/await}
         {/await}
     </div>
-    <PlayerList roomPromise={data.roomPromise} />
+    <PlayerList class="hidden lg:flex" roomPromise={data.roomPromise} />
 </main>

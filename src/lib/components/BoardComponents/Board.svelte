@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { createScrollArea, melt } from "@melt-ui/svelte";
     import { onMount } from "svelte";
     import Tile from "./Tile.svelte";
     import { supabase } from "$lib/supabaseClient";
@@ -17,6 +18,21 @@
     export let isLobby: boolean = false;
 
     const channel = supabase.channel(`tile:${roomId}`);
+    const {
+        elements: {
+            root,
+            content,
+            viewport,
+            corner,
+            scrollbarY,
+            thumbY,
+            thumbX,
+            scrollbarX,
+        },
+    } = createScrollArea({
+        type: "auto",
+        dir: "rtl",
+    });
 
     $: boardLength = board.length;
 
@@ -251,22 +267,49 @@
 
 <div
     bind:this={element}
-    class={`h-[70vh] min-h-80 aspect-square bg-black grid justify-items-stretch ${$$props.class}`}
-    style="grid-template-columns: repeat({boardLength}, minmax(0, 1fr)); grid-template-rows: repeat({boardLength}, minmax(0, 1fr));"
+    class={`max-w-[70vh] w-[100vw] aspect-square min-w-80 bg-black ${$$props.class}`}
     on:mousemove
+    use:melt={$root}
     role="main"
 >
-    <!--Row-->
-    {#each { length: boardLength } as _, x}
-        <!--Column-->
-        {#each { length: boardLength } as _, y}
-            <Tile
-                position={{ x, y }}
-                state={board ? (board[x] ? board[x][y] : undefined) : undefined}
-                {postTile}
-                {flagTile}
-            />
-        {/each}
-    {/each}
-    <slot name="players" />
+    <div use:melt={$viewport} class="h-full w-full">
+        <div
+            class="h-full w-full aspect-square grid justify-items-center"
+            style="grid-template-columns: repeat({boardLength}, minmax(0, 1fr)); grid-template-rows: repeat({boardLength}, minmax(0, 1fr));"
+        >
+            <!--Row-->
+            {#each { length: boardLength } as _, x}
+                <!--Column-->
+                {#each { length: boardLength } as _, y}
+                    <Tile
+                        position={{ x, y }}
+                        state={board
+                            ? board[x]
+                                ? board[x][y]
+                                : undefined
+                            : undefined}
+                        {postTile}
+                        {flagTile}
+                    />
+                {/each}
+            {/each}
+            <slot name="players" />
+        </div>
+    </div>
+    <div
+        use:melt={$scrollbarY}
+        class="flex h-full w-2.5 touch-none select-none border-l border-l-transparent bg-primary-800/10 p-px transition-colors"
+    >
+        <div
+            use:melt={$thumbY}
+            class="relative flex-1 rounded-full bg-primary-600"
+        />
+    </div>
+    <div
+        use:melt={$scrollbarX}
+        class="flex h-2.5 w-full touch-none select-none border-t border-t-transparent bg-primary-800/10 p-px"
+    >
+        <div use:melt={$thumbX} class="relative rounded-full bg-primary-600" />
+    </div>
+    <div use:melt={$corner} />
 </div>

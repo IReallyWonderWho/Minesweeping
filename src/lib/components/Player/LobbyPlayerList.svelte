@@ -27,7 +27,7 @@
     });
 </script>
 
-<aside class="right-0 animate-lobby ml-auto flex flex-row">
+<aside class={`right-0 animate-lobby ml-auto flex flex-row ${$$props.class}`}>
     <div
         use:melt={$root}
         class="flex flex-col h-[100vh] max-w-[327px] w-[327px] overflow-y-hidden bg-neutral-900"

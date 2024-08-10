@@ -194,13 +194,12 @@ export async function createRoom(hostId: string) {
       rows_columns: 12,
       mine_ratio: 6,
     }),
-    supabase.from("flags").insert({
-      room_id: roomId,
-      flags: {},
-    }),
   ]);
 
-  console.log(error);
+  await supabase.from("flags").insert({
+    room_id: roomId,
+    flags: {},
+  });
 
   if (error) return;
 
