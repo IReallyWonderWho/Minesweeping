@@ -267,7 +267,7 @@
 
 <div
     bind:this={element}
-    class={`max-w-[70vh] w-[100vw] aspect-square min-w-80 bg-black ${$$props.class}`}
+    class={`max-w-[70vh] w-[100vw] aspect-square min-w-80 bg-black select-none ${$$props.class}`}
     on:mousemove
     use:melt={$root}
     role="main"

@@ -17,7 +17,7 @@
         content="Minesweeping is an online multiplayer minesweeper game. Play with other people online and clear minesweeper boards together!"
     />
 </svelte:head>
-<main class="h-[100vh] hero">
+<main class="hero min-h-screen">
     <div class="hero-content flex-col">
         <h1
             class="font-display m-8 h-10 text-5xl text-primary-100 tracking-[-0.14em] z-10 drop"
