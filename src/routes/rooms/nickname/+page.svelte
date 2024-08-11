@@ -22,6 +22,20 @@
             },
         });
     }
+    $: {
+        new Promise(async () => {
+            if (creatingRoom) return;
+            const { error } = await supabase
+                .from("rooms")
+                .select("id")
+                .eq("id", roomId)
+                .single();
+
+            if (error) {
+                goto("/");
+            }
+        });
+    }
 
     type ValidateResult = [true, undefined] | [false, string];
 
@@ -42,19 +56,18 @@
         return [true, undefined];
     }
 
+    let debounce = false;
+
     async function makePlayer() {
+        if (debounce) return;
+        debounce = true;
+
         const color = getRandomHSL();
         let { data: userData, error: playerError } =
             await supabase.auth.getUser();
 
         if (playerError) {
-            const { data, error } = await supabase.auth.signInAnonymously({
-                options: {
-                    data: {
-                        room_id: roomId,
-                    },
-                },
-            });
+            const { data, error } = await supabase.auth.signInAnonymously();
 
             if (error) {
                 addToast({
@@ -80,6 +93,7 @@
                     color: "red",
                 },
             });
+            debounce = false;
             return;
         }
 
@@ -122,6 +136,7 @@
                     color: "red",
                 },
             });
+            debounce = false;
             return;
         }
         if (roomError) {
@@ -133,9 +148,11 @@
                     color: "red,",
                 },
             });
+            debounce = false;
             return;
         }
 
+        debounce = false;
         await goto(
             roomData.started ? `/rooms/${roomId}/playing` : `/rooms/${roomId}`,
             {

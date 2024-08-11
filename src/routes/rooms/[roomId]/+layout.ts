@@ -13,16 +13,11 @@ async function getData(roomId: number) {
     .eq("id", roomId)
     .single();
 
-  console.log("bruh");
-  console.log(data);
-  console.log(error);
   return !error ? data : undefined;
 }
 
 export const load: PageServerLoad = async ({ request, params }) => {
   const roomId = params["roomId"];
-  console.log("what");
-  console.log(request);
 
   if (!roomId || typeof roomId !== "string") throw redirect(307, "/");
   let room_id = Number(roomId);

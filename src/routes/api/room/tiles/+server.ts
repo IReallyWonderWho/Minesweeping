@@ -3,7 +3,6 @@ import { v4 as uuidv4 } from "uuid";
 import type { RequestHandler } from "./$types";
 import { MINE_TILE, returnTile, didGameEnd } from "$lib/server/board";
 import { getRoomData, type Room, getUser } from "$lib/server/rooms";
-import { json } from "@sveltejs/kit";
 
 const supabase = createClient(
   process.env.PUBLIC_SUPABASE_URL ?? "",

@@ -2,7 +2,7 @@
     import { page } from "$app/stores";
     import { supabase } from "$lib/supabaseClient";
     import Icon from "$lib/components/Icon.svelte";
-    import { isHost, type roomData } from "$lib/stores";
+    import { type roomData } from "$lib/stores";
     import { onMount } from "svelte";
 
     export let data: roomData;
@@ -25,21 +25,23 @@
 
     onMount(() => {
         supabase.auth.getUser().then(async ({ data: playerData, error }) => {
-            console.log(data);
             if (error) return;
 
             const hostId = (await data.roomPromise).host;
 
             if (playerData.user?.id === hostId) {
-                console.log("hello");
                 pingRoom();
                 event = setInterval(pingRoom, 60000);
             }
         });
+
+        return () => {
+            clearInterval(event);
+        };
     });
 </script>
 
-<div class="navbar absolute">
+<div class="navbar absolute z-10 minesweeper-navbar">
     <Icon
         class="ml-5 -rotate-12"
         name="flag"
@@ -53,3 +55,9 @@
 </div>
 
 <slot />
+
+<style>
+    .minesweeper-navbar {
+        view-transition-name: minesweeper-navbar;
+    }
+</style>

@@ -20,12 +20,12 @@
 <main class="hero min-h-screen">
     <div class="hero-content flex-col">
         <h1
-            class="font-display m-8 h-10 text-5xl text-primary-100 tracking-[-0.14em] z-10 drop"
+            class="font-display m-8 h-10 text-3xl sm:text-5xl text-primary-100 tracking-[-0.14em] z-10 drop"
         >
             Minesweeping
         </h1>
         <Icon
-            class="mt-[-175px] ml-[-375px] absolute z-0 -rotate-12"
+            class="mt-[-175px] ml-[-225px] sm:ml-[-375px] absolute z-0 -rotate-12"
             name="flag"
             height="3rem"
             width="3rem"
@@ -50,7 +50,7 @@
         </div>
 
         <form on:submit|preventDefault={createRoom} class="absolute bottom-5">
-            <button class="btn">Create a room</button>
+            <button class="btn drop-shadow-xl">Create a room</button>
         </form>
     </div>
 </main>

@@ -32,8 +32,11 @@
         .then((data) => data.id)
         // If the user isn't signed into the room with a nickname, redirect them
         .catch(() =>
-            goto(`/rooms/
-          ${roomId}/playing/nickname`),
+            goto(
+                `/rooms/
+          ${roomId}/playing/nickname`,
+                { invalidateAll: true },
+            ),
         );
 
     let previous_position: [number, number] = [0, 0];
@@ -93,7 +96,8 @@
 
     onMount(() => {
         data.roomPromise.then((room) => {
-            if (!room.started) return goto(`/rooms/${roomId}`);
+            if (!room.started)
+                return goto(`/rooms/${roomId}`, { invalidateAll: true });
             $flags = new Map(Object.entries(room.flags.flags ?? {}));
         });
         // Set up database connections && presence
@@ -198,7 +202,7 @@
                         user: await user_id,
                     });
                 } catch {
-                    goto("/");
+                    goto("/", { invalidateAll: true });
                 }
             });
 
@@ -221,7 +225,7 @@
         {#await data.roomPromise}
             <Board
                 bind:element
-                class="col-start-2 relative"
+                class="col-start-2 relative max-w-[70vh]"
                 {roomId}
                 {correctBoard}
                 board={createTempBoard(12)}
@@ -239,7 +243,7 @@
             />
             <Board
                 bind:element
-                class="col-start-2 relative"
+                class="col-start-2 relative max-w-[70vh]"
                 {roomId}
                 {correctBoard}
                 started={room.started}

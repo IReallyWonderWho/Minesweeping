@@ -172,6 +172,9 @@
             .subscribe(async (status) => {
                 if (status !== "SUBSCRIBED") {
                     console.warn(status);
+                    if (status === "CHANNEL_ERROR") {
+                        invalidateAll();
+                    }
                     return;
                 }
                 console.log(data);
@@ -190,6 +193,11 @@
                     goto(`/rooms/nickname?roomId=${roomId}`);
                 }
             });
+
+        return () => {
+            console.log("Cleaning up");
+            supabase.removeChannel(roomChannel);
+        };
     });
 </script>
 

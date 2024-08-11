@@ -1,4 +1,4 @@
-export function longpress(node: HTMLElement, threshold = 500) {
+export function longpress(node: HTMLElement, threshold = 250) {
   const handle_press = () => {
     const timeout = setTimeout(() => {
       node.dispatchEvent(new CustomEvent("longpress"));
