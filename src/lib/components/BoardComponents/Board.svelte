@@ -9,6 +9,7 @@
     const UNKNOWN_TILE = -2;
     const FLAGGED_TILE = -3;
     const MINE_TILE = -1;
+    const FALSE_FLAG_TILE = -4;
 
     export let started: boolean;
     export let roomId: string;
@@ -62,6 +63,25 @@
             }
 
             board[x][y] = FLAGGED_TILE;
+        }
+    }
+
+    $: {
+        // The game has ended and now we display where the mines were and any false flags
+        if (correctBoard) {
+            for (let x = 0; x < correctBoard.length; x++) {
+                for (let y = 0; y < correctBoard.length; y++) {
+                    const correctTile = correctBoard[x][y];
+                    const clientTile = board[x][y];
+
+                    if (
+                        clientTile === FLAGGED_TILE &&
+                        correctTile !== MINE_TILE
+                    ) {
+                        board[x][y] = FALSE_FLAG_TILE;
+                    }
+                }
+            }
         }
     }
 
@@ -191,76 +211,78 @@
     }
 
     onMount(() => {
-        if (isLobby) {
-            channel
-                .on(
-                    "broadcast",
-                    {
-                        event: "tileUpdated",
-                    },
-                    ({ payload }) => {
-                        const returned_tile = JSON.parse(payload.tile);
+        console.log(isLobby);
+        if (isLobby) return;
+        channel
+            .on(
+                "broadcast",
+                {
+                    event: "tileUpdated",
+                },
+                ({ payload }) => {
+                    const returned_tile = JSON.parse(payload.tile);
 
-                        if (!board) return;
+                    if (!board) return;
 
-                        if (returned_tile["x"] !== undefined) {
-                            const { x, y, state } = returned_tile;
+                    if (returned_tile["x"] !== undefined) {
+                        const { x, y, state } = returned_tile;
 
-                            // If a tile is being flagged, make sure it's not in any invalid
-                            // positions
-                            if (
-                                state === FLAGGED_TILE &&
-                                board[x][y] === UNKNOWN_TILE
-                            ) {
-                                $flags.set(`${x},${y}`, true);
+                        // If a tile is being flagged, make sure it's not in any invalid
+                        // positions
+                        if (
+                            state === FLAGGED_TILE &&
+                            board[x][y] === UNKNOWN_TILE
+                        ) {
+                            $flags.set(`${x},${y}`, true);
+                            $flags = $flags;
+
+                            board[x][y] = FLAGGED_TILE;
+                        } else if (state !== FLAGGED_TILE) {
+                            if (board[x][y] === FLAGGED_TILE) {
+                                $flags.delete(`${x},${y}`);
                                 $flags = $flags;
-
-                                board[x][y] = FLAGGED_TILE;
-                            } else if (state !== FLAGGED_TILE) {
-                                if (board[x][y] === FLAGGED_TILE) {
-                                    $flags.delete(`${x},${y}`);
-                                    $flags = $flags;
-                                }
-
-                                board[x][y] = state;
                             }
-                        } else {
-                            for (const [id, state] of new Map(
-                                Object.entries(returned_tile),
-                            )) {
-                                const [_x, _y] = id.split(",");
-                                const [x, y] = [Number(_x), Number(_y)];
 
-                                board[x][y] = state as number;
-                            }
+                            board[x][y] = state;
                         }
-                    },
-                )
-                .on(
-                    "postgres_changes",
-                    {
-                        event: "UPDATE",
-                        schema: "public",
-                        table: "rooms",
-                    },
-                    (payload) => {
-                        console.log(payload.new.client_board);
-                        console.log(payload.old.client_board);
-                        if (!payload.new.client_board) return;
-                        // When the game first starts, a new board is formed which is full of unknown tiles,
-                        // and then its evaluated, resulting in two update requests in that short time.
-                        // To prevent showing the unknown board, we filter out the updates that don't have any revealed
-                        // tiles
-                        if (!payload.new.revealed_tiles) return;
+                    } else {
+                        for (const [id, state] of new Map(
+                            Object.entries(returned_tile),
+                        )) {
+                            const [_x, _y] = id.split(",");
+                            const [x, y] = [Number(_x), Number(_y)];
 
-                        board = payload.new.client_board;
-                    },
-                )
-                .subscribe();
-        }
+                            board[x][y] = state as number;
+                        }
+                    }
+                },
+            )
+            .on(
+                "postgres_changes",
+                {
+                    event: "UPDATE",
+                    schema: "public",
+                    table: "rooms",
+                },
+                (payload) => {
+                    if (!payload.new.client_board) return;
+                    // When the game first starts, a new board is formed which is full of unknown tiles,
+                    // and then its evaluated, resulting in two update requests in that short time.
+                    // To prevent showing the unknown board, we filter out the updates that don't have any revealed
+                    // tiles
+                    if (!payload.new.revealed_tiles || !payload.new.started)
+                        return;
 
-        return async () => {
-            await supabase.removeChannel(channel);
+                    console.log("Updating board");
+                    board = payload.new.client_board;
+                },
+            )
+            .subscribe((status) => {
+                console.log(status);
+            });
+
+        return () => {
+            supabase.removeChannel(channel);
         };
     });
 </script>

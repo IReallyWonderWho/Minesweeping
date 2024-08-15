@@ -173,11 +173,11 @@
                 if (status !== "SUBSCRIBED") {
                     console.warn(status);
                     if (status === "CHANNEL_ERROR") {
+                        console.log("Reloading");
                         invalidateAll();
                     }
                     return;
                 }
-                console.log(data);
 
                 try {
                     const { nickname, color } = (await data.userPromise)
@@ -220,6 +220,7 @@
             {board}
             started={false}
             {roomId}
+            isLobby={true}
         />
         <!--These are only for the room's host-->
         {#await data.roomPromise then room}

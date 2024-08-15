@@ -12,6 +12,7 @@
     const MINE_TILE = -1;
     const UNKNOWN_TILE = -2;
     const FLAGGED_TILE = -3;
+    const FALSE_FLAG_TILE = -4;
 
     const NUMBER_COLORS = {
         1: "text-[#3a8ae0]",
@@ -29,7 +30,9 @@
     // If we multiply by 12, we get straight lines and not the checkered pattern :(
     let is_darkened = (11 * position.x + position.y) % 2 === 0 ? true : false;
     $: color =
-        state === UNKNOWN_TILE || state === FLAGGED_TILE
+        state === UNKNOWN_TILE ||
+        state === FLAGGED_TILE ||
+        state === FALSE_FLAG_TILE
             ? is_darkened
                 ? `bg-[#3cadf0]`
                 : `bg-[#57c1ff]`
@@ -37,7 +40,13 @@
               ? `bg-[#d9ccb6]`
               : `bg-[#ede4d5]`;
     $: icon =
-        state === FLAGGED_TILE ? "flag" : state === MINE_TILE ? "mine" : "none";
+        state === FLAGGED_TILE
+            ? "flag"
+            : state === MINE_TILE
+              ? "mine"
+              : state === FALSE_FLAG_TILE
+                ? "false"
+                : "none";
     $: text_color =
         state && state in NUMBER_COLORS ? NUMBER_COLORS[state as 1] : "#FFFFFF";
 
@@ -65,6 +74,8 @@
         <Icon name="flag" height="22.875px" width="25.5px" />
     {:else if icon === "mine"}
         <Icon name="mine" height="22.875px" width="25.5px" />
+    {:else if icon === "false"}
+        <Icon name="false" height="22.875px" width="25.5px" />
     {/if}
     <!--Show the number-->
     {#if state && state > 0}

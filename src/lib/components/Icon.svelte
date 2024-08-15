@@ -31,6 +31,13 @@
             <rect x="44.9532" y="24" width="4" height="19.0226" rx="2" transform="rotate(63.0262 44.9532 24)" fill="#D9D9D9"/>
             </svg>`,
         },
+        false: {
+            box: [49, 50],
+            svg: `<svg width="49" height="50" viewBox="0 0 49 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0.339752" y="42.9951" width="59.7271" height="9.0889" rx="4.54445" transform="rotate(-45 0.339752 42.9951)" fill="#FF5252"/>
+          <rect x="6.42683" y="1.07112" width="59.7271" height="9.0889" rx="4.54445" transform="rotate(45 6.42683 1.07112)" fill="#FF5252"/>
+          </svg>`,
+        },
     } as const;
     let displayIcon = icons[name];
 </script>

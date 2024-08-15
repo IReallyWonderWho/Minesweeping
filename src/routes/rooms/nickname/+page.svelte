@@ -4,6 +4,7 @@
     import { addToast } from "$lib/components/Toaster.svelte";
     import { supabase } from "$lib/supabaseClient";
     import { getRandomHSL, decode, addSpace } from "$lib/utility";
+    import { flags } from "$lib/stores.js";
 
     export let form;
 
@@ -56,11 +57,11 @@
         return [true, undefined];
     }
 
-    let debounce = false;
+    let pressed = false;
 
     async function makePlayer() {
-        if (debounce) return;
-        debounce = true;
+        if (pressed) return;
+        pressed = true;
 
         const color = getRandomHSL();
         let { data: userData, error: playerError } =
@@ -77,6 +78,7 @@
                         color: "red",
                     },
                 });
+                pressed = false;
                 return;
             }
 
@@ -93,7 +95,7 @@
                     color: "red",
                 },
             });
-            debounce = false;
+            pressed = false;
             return;
         }
 
@@ -112,20 +114,14 @@
             roomId = data[0];
         }
 
-        const [{ error: joinError }, { data: roomData, error: roomError }] =
-            await Promise.all([
-                supabase.from("room_players").upsert({
-                    user_id,
-                    room_id: roomId,
-                    color,
-                    nickname,
-                }),
-                supabase
-                    .from("rooms")
-                    .select("started")
-                    .eq("id", roomId)
-                    .single(),
-            ]);
+        const { error: joinError } = await supabase
+            .from("room_players")
+            .upsert({
+                user_id,
+                room_id: roomId,
+                color,
+                nickname,
+            });
 
         if (joinError) {
             console.warn(joinError);
@@ -136,29 +132,15 @@
                     color: "red",
                 },
             });
-            debounce = false;
-            return;
-        }
-        if (roomError) {
-            console.warn(roomError);
-            addToast({
-                data: {
-                    title: "Unable to fetch room",
-                    description: `Supabase error: ${roomError.message}`,
-                    color: "red,",
-                },
-            });
-            debounce = false;
+            pressed = false;
             return;
         }
 
-        debounce = false;
-        await goto(
-            roomData.started ? `/rooms/${roomId}/playing` : `/rooms/${roomId}`,
-            {
-                invalidateAll: true,
-            },
-        );
+        pressed = false;
+        $flags = new Map();
+        await goto(`/rooms/${roomId}`, {
+            invalidateAll: true,
+        });
     }
 </script>
 
@@ -182,7 +164,11 @@
                     required
                     bind:value={nickname}
                 />
-                <button class="btn btn-neutral min-h-10 h-10">Enter</button>
+                <button
+                    class="btn min-h-10 h-10 {pressed
+                        ? 'btn-disabled'
+                        : 'btn-neutral'}">Enter</button
+                >
             </form>
         </div>
     </div>
