@@ -1,6 +1,6 @@
 <script lang="ts">
     import { page } from "$app/stores";
-    import { goto, invalidateAll } from "$app/navigation";
+    import { goto } from "$app/navigation";
     import { addToast } from "$lib/components/Toaster.svelte";
     import { supabase } from "$lib/supabaseClient";
     import { getRandomHSL, decode, addSpace } from "$lib/utility";
@@ -21,20 +21,6 @@
                 description: form.error,
                 color: "red",
             },
-        });
-    }
-    $: {
-        new Promise(async () => {
-            if (creatingRoom) return;
-            const { error } = await supabase
-                .from("rooms")
-                .select("id")
-                .eq("id", roomId)
-                .single();
-
-            if (error) {
-                goto("/");
-            }
         });
     }
 
