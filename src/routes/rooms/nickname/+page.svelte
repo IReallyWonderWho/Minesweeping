@@ -57,13 +57,14 @@
             const { data, error } = await supabase.auth.signInAnonymously();
 
             if (error) {
-                addToast({
-                    data: {
-                        title: "Unable to sign in anonymously",
-                        description: `Supabase error: ${error}`,
-                        color: "red",
-                    },
-                });
+                if (error.message)
+                    addToast({
+                        data: {
+                            title: "Unable to sign in anonymously",
+                            description: `Supabase error: ${error.message}`,
+                            color: "red",
+                        },
+                    });
                 pressed = false;
                 return;
             }

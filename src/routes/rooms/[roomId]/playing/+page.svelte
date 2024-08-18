@@ -32,11 +32,9 @@
         .then((data) => data.id)
         // If the user isn't signed into the room with a nickname, redirect them
         .catch(() =>
-            goto(
-                `/rooms/
-          ${roomId}/playing/nickname`,
-                { invalidateAll: true },
-            ),
+            goto(`/rooms/nickname?roomId=${roomId}`, {
+                invalidateAll: true,
+            }),
         );
 
     let previous_position: [number, number] = [0, 0];

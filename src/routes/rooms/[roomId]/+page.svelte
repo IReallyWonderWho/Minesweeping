@@ -192,7 +192,9 @@
                     });
                 } catch (error) {
                     console.warn(error);
-                    goto(`/rooms/nickname?roomId=${roomId}`);
+                    goto(`/rooms/nickname?roomId=${roomId}`, {
+                        invalidateAll: true,
+                    });
                 }
             });
 
