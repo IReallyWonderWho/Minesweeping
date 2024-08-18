@@ -6,7 +6,7 @@
     import { getRandomHSL, decode, addSpace } from "$lib/utility";
     import { flags } from "$lib/stores.js";
 
-    export let form;
+    export let form: any;
 
     let roomId = $page.url.searchParams.get("roomId");
     const creatingRoom = $page.url.searchParams.get("creating");

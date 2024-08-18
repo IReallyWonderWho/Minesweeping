@@ -235,7 +235,8 @@
             <!--If the board isn't created yet, make a temporary one just so the code works-->
             <!--This doesn't take into possibility different screen sizes, i'll deal with that later-->
             <BoardStats
-                class="top-[11vh] fixed text-center z-10"
+                class="top-[11vh] left-1/2 fixed z-10"
+                style="transform: translateX(-50%)"
                 time_started={room.created_at}
                 board={room.client_board ?? createTempBoard(room.rows_columns)}
                 ratio={room.mine_ratio}

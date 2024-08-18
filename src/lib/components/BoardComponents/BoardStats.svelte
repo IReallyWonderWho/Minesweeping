@@ -55,7 +55,7 @@
     });
 </script>
 
-<div class={`${$$props["class"]}`}>
+<div class={`${$$props["class"]}`} style={`${$$props["style"]}`}>
     <div class="flex flex-row">
         <span class="flex flex-row mr-3">
             <Icon class="mr-1" name="flag" />

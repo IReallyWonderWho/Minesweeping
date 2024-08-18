@@ -172,9 +172,11 @@
             .subscribe(async (status) => {
                 if (status !== "SUBSCRIBED") {
                     console.warn(status);
-                    if (status === "CHANNEL_ERROR") {
+                    if (status !== "CLOSED") {
                         console.log("Reloading");
-                        invalidateAll();
+                        await goto(`/rooms/${roomId}`, {
+                            invalidateAll: true,
+                        });
                     }
                     return;
                 }
