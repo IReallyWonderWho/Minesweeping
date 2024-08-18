@@ -91,13 +91,7 @@
         ]);
     }
 
-    onMount(() => {
-        data.roomPromise.then((room) => {
-            if (room.started) {
-                goto(`/rooms/${roomId}/playing/`);
-            }
-        });
-
+    function subscribeWithRetry(retry = 0, maxAttempts = 3, delay = 1000) {
         roomChannel
             .on("presence", { event: "sync" }, () => {
                 const newState = roomChannel.presenceState()[
@@ -173,10 +167,17 @@
                 if (status !== "SUBSCRIBED") {
                     console.warn(status);
                     if (status !== "CLOSED") {
-                        console.log("Reloading");
-                        await goto(`/rooms/${roomId}`, {
-                            invalidateAll: true,
-                        });
+                        console.warn("Subscription failed, retrying");
+
+                        setTimeout(
+                            () =>
+                                subscribeWithRetry(
+                                    retry + 1,
+                                    maxAttempts,
+                                    delay,
+                                ),
+                            delay,
+                        );
                     }
                     return;
                 }
@@ -191,12 +192,21 @@
                         user: await user_id,
                     });
                 } catch (error) {
-                    console.warn(error);
                     goto(`/rooms/nickname?roomId=${roomId}`, {
                         invalidateAll: true,
                     });
                 }
             });
+    }
+
+    onMount(() => {
+        data.roomPromise.then((room) => {
+            if (room.started) {
+                goto(`/rooms/${roomId}/playing/`);
+            }
+        });
+
+        subscribeWithRetry();
 
         return () => {
             console.log("Cleaning up");
