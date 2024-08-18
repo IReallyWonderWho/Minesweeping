@@ -19,12 +19,8 @@
 
     const roomId = $page.params["roomId"];
     const stringRoomId = addSpace(decode(Number(roomId)));
-    const roomChannel = supabase.channel(`room:${roomId}`, {
-        config: {
-            presence: { key: roomId },
-        },
-    });
     const user_id = data.userPromise.then((data) => data.id);
+    const optionsChannel = supabase.channel(`room:${roomId}`);
 
     let board: Array<Array<number>>;
     let previous_mine_ratio = 0;
@@ -53,7 +49,7 @@
                 }
             }
 
-            roomChannel.send({
+            optionsChannel.send({
                 type: "broadcast",
                 event: "settingsChanged",
                 payload: {
@@ -91,7 +87,19 @@
         ]);
     }
 
-    function subscribeWithRetry(retry = 0, maxAttempts = 3, delay = 1000) {
+    onMount(() => {
+        data.roomPromise.then((room) => {
+            if (room.started) {
+                goto(`/rooms/${roomId}/playing/`);
+            }
+        });
+
+        const roomChannel = supabase.channel(`room:${roomId}`, {
+            config: {
+                presence: { key: roomId },
+            },
+        });
+
         roomChannel
             .on("presence", { event: "sync" }, () => {
                 const newState = roomChannel.presenceState()[
@@ -197,20 +205,11 @@
                     });
                 }
             });
-    }
-
-    onMount(() => {
-        data.roomPromise.then((room) => {
-            if (room.started) {
-                goto(`/rooms/${roomId}/playing/`);
-            }
-        });
-
-        subscribeWithRetry();
 
         return () => {
             console.log("Cleaning up");
             supabase.removeChannel(roomChannel);
+            supabase.removeChannel(optionsChannel);
         };
     });
 </script>
