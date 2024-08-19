@@ -220,6 +220,7 @@
                 {correctBoard}
                 board={createTempBoard(12)}
                 started={false}
+                supabase={data.supabase}
             />
         {:then room}
             <!--If the board isn't created yet, make a temporary one just so the code works-->
@@ -240,6 +241,7 @@
                 started={room.started}
                 board={room.client_board ?? createTempBoard(room.rows_columns)}
                 on:mousemove={handleMouseMove}
+                supabase={data.supabase}
             >
                 <div slot="players">
                     {#each player_positions as [player_id, { x, y, color }] (player_id)}

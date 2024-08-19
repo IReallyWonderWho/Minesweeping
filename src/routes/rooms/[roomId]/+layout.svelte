@@ -1,6 +1,5 @@
 <script lang="ts">
     import { page } from "$app/stores";
-    import { supabase } from "$lib/supabaseClient";
     import Icon from "$lib/components/Icon.svelte";
     import { type roomData } from "$lib/stores";
     import { onMount } from "svelte";
@@ -12,10 +11,7 @@
     let event: NodeJS.Timeout;
 
     async function pingRoom() {
-        const { data: playerData } = await supabase.auth.getUser();
-        if (!playerData) throw new Error("User not authenticated");
-
-        const { error } = await supabase.rpc("update_room_ping", {
+        const { error } = await data.supabase.rpc("update_room_ping", {
             room_id: roomId,
         });
 
@@ -24,16 +20,18 @@
     }
 
     onMount(() => {
-        supabase.auth.getUser().then(async ({ data: playerData, error }) => {
-            if (error) return;
+        data.supabase.auth
+            .getUser()
+            .then(async ({ data: playerData, error }) => {
+                if (error) return;
 
-            const hostId = (await data.roomPromise).host;
+                const hostId = (await data.roomPromise).host;
 
-            if (playerData.user?.id === hostId) {
-                pingRoom();
-                event = setInterval(pingRoom, 60000);
-            }
-        });
+                if (playerData.user?.id === hostId) {
+                    pingRoom();
+                    event = setInterval(pingRoom, 60000);
+                }
+            });
 
         return () => {
             clearInterval(event);

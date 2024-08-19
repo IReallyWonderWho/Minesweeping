@@ -16,7 +16,7 @@ async function getData(supabase: SupabaseClient, roomId: number) {
   return !error ? data : undefined;
 }
 
-export const load: LayoutLoad = async ({ params, data, parent }) => {
+export const load: LayoutLoad = async ({ params, parent }) => {
   const { supabase } = await parent();
 
   const roomId = params["roomId"];

@@ -1,5 +1,4 @@
 import type { PageServerLoad } from "./$types";
-import { supabase } from "$lib/server/supabaseClient";
 import { fail, redirect, type Actions } from "@sveltejs/kit";
 import { getRandomHSL } from "$lib/utility";
 
@@ -25,6 +24,8 @@ function validateNickname(nickname: string): ValidateResult {
 export const actions: Actions = {
   default: async ({ request, locals: { supabase }, fetch }) => {
     const formData = await request.formData();
+
+    console.log(supabase);
 
     let roomId = formData.get("roomId") as string;
     const nickname = formData.get("nickname") as string;
@@ -76,7 +77,7 @@ export const actions: Actions = {
     }
 
     console.log("REDIRECTING GUYS!!");
-    throw redirect(307, `/rooms/${roomId}`);
+    throw redirect(302, `/rooms/${roomId}`);
   },
 };
 

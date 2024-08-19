@@ -87,103 +87,109 @@
     }
 
     onMount(() => {
-        data.roomPromise.then((room) => {
-            if (room.started) {
-                goto(`/rooms/${roomId}/playing/`);
-            }
-        });
-
         const roomChannel = data.supabase.channel(`room:${roomId}`, {
             config: {
                 presence: { key: roomId },
             },
         });
 
-        roomChannel
-            .on("presence", { event: "sync" }, () => {
-                const newState = roomChannel.presenceState()[
-                    roomId
-                ] as unknown as Array<{
-                    user: string;
-                    nickname: string;
-                    color: string;
-                }>;
+        data.roomPromise.then((room) => {
+            if (room.started) {
+                goto(`/rooms/${roomId}/playing/`);
+            }
 
-                for (const { user, nickname, color } of newState ?? []) {
+            roomChannel
+                .on("presence", { event: "sync" }, () => {
+                    const newState = roomChannel.presenceState()[
+                        roomId
+                    ] as unknown as Array<{
+                        user: string;
+                        nickname: string;
+                        color: string;
+                    }>;
+
+                    for (const { user, nickname, color } of newState ?? []) {
+                        $players.set(user, {
+                            x: 0,
+                            y: 0,
+                            nickname,
+                            color,
+                        });
+                    }
+
+                    $players = $players;
+                })
+                .on("presence", { event: "join" }, async ({ newPresences }) => {
+                    const { user, nickname, color } = newPresences[0];
+
                     $players.set(user, {
                         x: 0,
                         y: 0,
                         nickname,
                         color,
                     });
-                }
+                    $players = $players;
+                })
+                .on(
+                    "presence",
+                    { event: "leave" },
+                    async ({ leftPresences }) => {
+                        const { user } = leftPresences[0];
 
-                $players = $players;
-            })
-            .on("presence", { event: "join" }, async ({ newPresences }) => {
-                const { user, nickname, color } = newPresences[0];
+                        $players.delete(user);
+                        $players = $players;
+                    },
+                )
+                .on(
+                    "broadcast",
+                    { event: "settingsChanged" },
+                    async ({ payload }) => {
+                        if ((await user_id) !== (await data.roomPromise).host) {
+                            const newSize = payload.settings[0];
+                            const newRatio = payload.settings[1];
 
-                $players.set(user, {
-                    x: 0,
-                    y: 0,
-                    nickname,
-                    color,
-                });
-                $players = $players;
-            })
-            .on("presence", { event: "leave" }, async ({ leftPresences }) => {
-                const { user } = leftPresences[0];
-
-                $players.delete(user);
-                $players = $players;
-            })
-            .on(
-                "broadcast",
-                { event: "settingsChanged" },
-                async ({ payload }) => {
-                    if ((await user_id) !== (await data.roomPromise).host) {
-                        const newSize = payload.settings[0];
-                        const newRatio = payload.settings[1];
-
-                        $numberOfRowsColumns = [newSize];
-                        $mineRatio = [newRatio];
+                            $numberOfRowsColumns = [newSize];
+                            $mineRatio = [newRatio];
+                        }
+                    },
+                )
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "UPDATE",
+                        schema: "public",
+                        table: "rooms",
+                    },
+                    async (payload) => {
+                        console.log(payload);
+                        if (payload.new.started) {
+                            console.log("Redirecting");
+                            await goto(`/rooms/${roomId}/playing/`, {
+                                invalidateAll: true,
+                            }).catch((reason) => {
+                                console.warn(reason);
+                                invalidateAll();
+                            });
+                        }
+                    },
+                )
+                .subscribe(async (status) => {
+                    if (status !== "SUBSCRIBED") {
+                        console.warn(status);
+                        return;
                     }
-                },
-            )
-            .on(
-                "postgres_changes",
-                {
-                    event: "UPDATE",
-                    schema: "public",
-                    table: "rooms",
-                },
-                async (payload) => {
-                    console.log(payload);
-                    if (payload.new.started) {
-                        console.log("Redirecting");
-                        await goto(`/rooms/${roomId}/playing/`, {
-                            invalidateAll: true,
-                        }).catch((reason) => {
-                            console.warn(reason);
-                            invalidateAll();
-                        });
-                    }
-                },
-            )
-            .subscribe(async (status) => {
-                if (status !== "SUBSCRIBED") {
-                    console.warn(status);
-                    return;
-                }
+                    console.log("Connected!");
 
-                const { nickname, color } = (await data.userPromise).playerData;
+                    const { nickname, color } = (await data.userPromise)
+                        .playerData;
 
-                roomChannel.track({
-                    nickname,
-                    color,
-                    user: await user_id,
+                    roomChannel.track({
+                        nickname,
+                        color,
+                        user: await user_id,
+                    });
                 });
-            });
+        });
 
         return () => {
             console.log("Cleaning up");
@@ -213,6 +219,7 @@
             started={false}
             {roomId}
             isLobby={true}
+            supabase={data.supabase}
         />
         <!--These are only for the room's host-->
         {#await data.roomPromise then room}

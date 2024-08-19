@@ -11,6 +11,7 @@
     const title = addSpace(decode(Number(roomId)));
 
     let nickname = "";
+    let pressed = false;
 
     $: if (form?.error) {
         addToast({
@@ -20,6 +21,7 @@
                 color: "red",
             },
         });
+        pressed = false;
     }
 </script>
 
@@ -30,7 +32,12 @@
 <div class="hero min-h-screen bg-background">
     <div class="hero-content flex-col text-center">
         <div class="card card-compact rounded-lg w-72 bg-primary-400">
-            <form use:enhance method="POST" class="card-body">
+            <form
+                use:enhance
+                method="POST"
+                class="card-body"
+                on:submit|preventDefault={() => (pressed = true)}
+            >
                 <h2
                     class="card-title text-xl text-primary-800 font-metropolis font-bold self-center text-center"
                 >
@@ -45,7 +52,11 @@
                 />
                 <input class="hidden" name="creating" value={creatingRoom} />
                 <input class="hidden" name="roomId" value={roomId} />
-                <button class="btn min-h-10 h-10 btn-neutral">Enter</button>
+                <button
+                    class="btn min-h-10 h-10 {pressed
+                        ? 'btn-disabled'
+                        : 'btn-neutral'}">Enter</button
+                >
             </form>
         </div>
     </div>

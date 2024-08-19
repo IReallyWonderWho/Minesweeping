@@ -2,15 +2,16 @@
     import { createScrollArea, melt } from "@melt-ui/svelte";
     import { onMount } from "svelte";
     import Tile from "./Tile.svelte";
-    import { supabase } from "$lib/supabaseClient";
     import { addToast } from "$lib/components/Toaster.svelte";
     import { flags } from "$lib/stores";
+    import type { SupabaseClient } from "@supabase/supabase-js";
 
     const UNKNOWN_TILE = -2;
     const FLAGGED_TILE = -3;
     const MINE_TILE = -1;
     const FALSE_FLAG_TILE = -4;
 
+    export let supabase: SupabaseClient;
     export let started: boolean;
     export let roomId: string;
     export let board: Array<Array<number>>;
