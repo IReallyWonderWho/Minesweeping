@@ -81,7 +81,7 @@ export const actions: Actions = {
   },
 };
 
-export const load: PageServerLoad = async ({ url }) => {
+/* export const load: PageServerLoad = async ({ url, locals: { supabase } }) => {
   const creating = url.searchParams.get("creating");
   const roomId = url.searchParams.get("roomId");
 
@@ -104,4 +104,4 @@ export const load: PageServerLoad = async ({ url }) => {
   }
 
   return {};
-};
+}; */

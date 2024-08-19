@@ -22,7 +22,7 @@ export const actions: Actions = {
     const room = await roomExists(room_id);
 
     return room
-      ? redirect(303, `/rooms/nickname?roomId=${room_id}`)
+      ? redirect(303, `/nickname?roomId=${room_id}`)
       : fail(404, {
           error: "Room not found",
         });
