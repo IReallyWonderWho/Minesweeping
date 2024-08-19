@@ -176,16 +176,13 @@
                     return;
                 }
 
-                try {
-                    const { nickname, color } = (await data.userPromise)
-                        .playerData;
+                const { nickname, color } = (await data.userPromise).playerData;
 
-                    roomChannel.track({
-                        nickname,
-                        color,
-                        user: await user_id,
-                    });
-                }
+                roomChannel.track({
+                    nickname,
+                    color,
+                    user: await user_id,
+                });
             });
 
         return () => {
