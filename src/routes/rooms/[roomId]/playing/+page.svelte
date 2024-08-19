@@ -8,7 +8,6 @@
     import PlayerList from "$lib/components/Player/PlayerList.svelte";
     import BoardStats from "$lib/components/BoardComponents/BoardStats.svelte";
     import ConfettiStage from "$lib/components/Confetti/ConfettiStage.svelte";
-    import { supabase } from "$lib/supabaseClient";
     import { flags, confetti, windowRect, type roomData } from "$lib/stores";
     import { clamp, decode, addSpace } from "$lib/utility";
     import { createTempBoard } from "$lib/boardUtils";
@@ -16,7 +15,7 @@
     export let data: roomData;
 
     const roomId = $page.params["roomId"];
-    const roomChannel = supabase.channel(`room:${roomId}`, {
+    const roomChannel = data.supabase.channel(`room:${roomId}`, {
         config: {
             presence: { key: roomId },
         },
@@ -28,14 +27,7 @@
     // Approximately 15 FPS
     const UPDATE_FPS = 66.667;
 
-    const user_id = data.userPromise
-        .then((data) => data.id)
-        // If the user isn't signed into the room with a nickname, redirect them
-        .catch(() =>
-            goto(`/rooms/nickname?roomId=${roomId}`, {
-                invalidateAll: true,
-            }),
-        );
+    const user_id = data.userPromise.then((data) => data.id);
 
     let previous_position: [number, number] = [0, 0];
     let last_call = Date.now();
@@ -205,7 +197,7 @@
             });
 
         return () => {
-            supabase.removeChannel(roomChannel);
+            data.supabase.removeChannel(roomChannel);
         };
     });
 </script>

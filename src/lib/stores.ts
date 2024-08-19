@@ -1,6 +1,9 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { writable } from "svelte/store";
 
 export interface roomData {
+  supabase: SupabaseClient;
+  session: string;
   roomPromise: Promise<{
     client_board: Array<Array<number>> | undefined;
     created_at: string;

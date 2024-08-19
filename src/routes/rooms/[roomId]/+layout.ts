@@ -1,10 +1,10 @@
 import { redirect } from "@sveltejs/kit";
-import type { PageServerLoad } from "./$types";
-import { supabase } from "$lib/supabaseClient";
+import type { LayoutLoad } from "./$types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const ssr = false;
 
-async function getData(roomId: number) {
+async function getData(supabase: SupabaseClient, roomId: number) {
   const { data, error } = await supabase
     .from("rooms")
     .select(
@@ -16,7 +16,9 @@ async function getData(roomId: number) {
   return !error ? data : undefined;
 }
 
-export const load: PageServerLoad = async ({ request, params }) => {
+export const load: LayoutLoad = async ({ params, data, parent }) => {
+  const { supabase } = await parent();
+
   const roomId = params["roomId"];
 
   if (!roomId || typeof roomId !== "string") throw redirect(307, "/");
@@ -46,7 +48,7 @@ export const load: PageServerLoad = async ({ request, params }) => {
     resolve(returnData);
   });
 
-  const room = getData(room_id);
+  const room = getData(supabase, room_id);
   console.log("MUHAHAHA");
 
   return {

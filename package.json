@@ -33,6 +33,7 @@
   "type": "module",
   "dependencies": {
     "@netlify/functions": "^2.8.1",
+    "@supabase/ssr": "^0.4.0",
     "@supabase/supabase-js": "^2.44.2",
     "gsap": "^3.12.5"
   }

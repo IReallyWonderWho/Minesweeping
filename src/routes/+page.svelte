@@ -6,7 +6,7 @@
     let roomId: string = "";
 
     async function createRoom() {
-        await goto("/rooms/nickname?creating=true");
+        await goto("/nickname?creating=true");
     }
 </script>
 

@@ -3,7 +3,6 @@
     import { goto, invalidateAll } from "$app/navigation";
     import { onMount } from "svelte";
     import PlayerList from "$lib/components/Player/LobbyPlayerList.svelte";
-    import { supabase } from "$lib/supabaseClient";
     import {
         players,
         numberOfRowsColumns,
@@ -20,7 +19,7 @@
     const roomId = $page.params["roomId"];
     const stringRoomId = addSpace(decode(Number(roomId)));
     const user_id = data.userPromise.then((data) => data.id);
-    const optionsChannel = supabase.channel(`room:${roomId}`);
+    const optionsChannel = data.supabase.channel(`room:${roomId}`);
 
     let board: Array<Array<number>>;
     let previous_mine_ratio = 0;
@@ -67,7 +66,7 @@
         // This is secured through postgres' RLS
         console.log("Hello!");
         await Promise.all([
-            supabase
+            data.supabase
                 .from("rooms")
                 .update({
                     started: true,
@@ -78,7 +77,7 @@
                     created_at: new Date().toISOString(),
                 })
                 .eq("id", roomId),
-            supabase
+            data.supabase
                 .from("flags")
                 .update({
                     flags: {},
@@ -94,7 +93,7 @@
             }
         });
 
-        const roomChannel = supabase.channel(`room:${roomId}`, {
+        const roomChannel = data.supabase.channel(`room:${roomId}`, {
             config: {
                 presence: { key: roomId },
             },
@@ -174,19 +173,6 @@
             .subscribe(async (status) => {
                 if (status !== "SUBSCRIBED") {
                     console.warn(status);
-                    if (status !== "CLOSED") {
-                        console.warn("Subscription failed, retrying");
-
-                        setTimeout(
-                            () =>
-                                subscribeWithRetry(
-                                    retry + 1,
-                                    maxAttempts,
-                                    delay,
-                                ),
-                            delay,
-                        );
-                    }
                     return;
                 }
 
@@ -199,17 +185,13 @@
                         color,
                         user: await user_id,
                     });
-                } catch (error) {
-                    goto(`/rooms/nickname?roomId=${roomId}`, {
-                        invalidateAll: true,
-                    });
                 }
             });
 
         return () => {
             console.log("Cleaning up");
-            supabase.removeChannel(roomChannel);
-            supabase.removeChannel(optionsChannel);
+            data.supabase.removeChannel(roomChannel);
+            data.supabase.removeChannel(optionsChannel);
         };
     });
 </script>
