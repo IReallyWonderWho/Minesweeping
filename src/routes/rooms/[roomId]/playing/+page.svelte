@@ -8,18 +8,19 @@
     import PlayerList from "$lib/components/Player/PlayerList.svelte";
     import BoardStats from "$lib/components/BoardComponents/BoardStats.svelte";
     import ConfettiStage from "$lib/components/Confetti/ConfettiStage.svelte";
-    import { flags, confetti, windowRect, type roomData } from "$lib/stores";
+    import {
+        flags,
+        confetti,
+        windowRect,
+        type roomData,
+        roomChannel,
+    } from "$lib/stores";
     import { clamp, decode, addSpace } from "$lib/utility";
     import { createTempBoard } from "$lib/boardUtils";
 
     export let data: roomData;
 
     const roomId = $page.params["roomId"];
-    const roomChannel = data.supabase.channel(`room:${roomId}`, {
-        config: {
-            presence: { key: roomId },
-        },
-    });
 
     // If the mouse distance moved is under 10 pixels, it's not worth sending
     // an update
@@ -27,7 +28,7 @@
     // Approximately 15 FPS
     const UPDATE_FPS = 66.667;
 
-    const user_id = data.userPromise.then((data) => data.id);
+    const user_id = data.user.id;
 
     let previous_position: [number, number] = [0, 0];
     let last_call = Date.now();
@@ -57,7 +58,7 @@
         const now = Date.now();
 
         if (now - last_call < UPDATE_FPS) return;
-        if (!$windowRect) return;
+        if (!$windowRect || !$roomChannel) return;
 
         const { pageX, pageY } = event;
         const { top, right, bottom, left, width, height } = $windowRect;
@@ -76,23 +77,24 @@
             const scaled_x = x / width;
             const scaled_y = y / height;
 
-            roomChannel.send({
+            $roomChannel.send({
                 type: "broadcast",
                 event: "mouseUpdate",
-                payload: { x: scaled_x, y: scaled_y, user_id: await user_id },
+                payload: { x: scaled_x, y: scaled_y, user_id: user_id },
             });
         }
     }
 
     onMount(() => {
-        data.roomPromise.then((room) => {
-            if (!room.started)
-                return goto(`/rooms/${roomId}`, { invalidateAll: true });
-            $flags = new Map(Object.entries(room.flags.flags ?? {}));
-        });
-        // Set up database connections && presence
-        // This is really ugly but i'm too lazy to change it for now
-        roomChannel
+        const room = data.room;
+        console.log(room.started);
+        if (!room.started)
+            return goto(`/rooms/${roomId}`, { invalidateAll: true });
+        $flags = new Map(Object.entries(room.flags.flags ?? {}));
+
+        const channel = data.supabase.channel(`room:${roomId}`);
+
+        channel
             .on("broadcast", { event: "mouseUpdate" }, ({ payload }) => {
                 const data = player_positions.get(payload.user_id);
 
@@ -135,70 +137,13 @@
                     }
 
                     setTimeout(() => {
-                        $flags = new Map();
                         $confetti = [false];
                         goto(`/rooms/${roomId}/`, { invalidateAll: true });
+                        $flags = new Map();
                     }, 5500);
                 },
             )
-            .on("presence", { event: "sync" }, () => {
-                const newState = roomChannel.presenceState()[
-                    roomId
-                ] as unknown as Array<{
-                    user: string;
-                    nickname: string;
-                    color: string;
-                }>;
-                const players = new Map();
-
-                for (const { user, nickname, color } of newState ?? []) {
-                    players.set(user, {
-                        x: 0,
-                        y: 0,
-                        nickname,
-                        color,
-                    });
-                }
-
-                player_positions = players;
-            })
-            .on("presence", { event: "join" }, async ({ newPresences }) => {
-                const { user, nickname, color } = newPresences[0];
-
-                player_positions.set(user, {
-                    x: 0,
-                    y: 0,
-                    nickname,
-                    color,
-                });
-                player_positions = player_positions;
-            })
-            .on("presence", { event: "leave" }, async ({ leftPresences }) => {
-                const { user } = leftPresences[0];
-
-                player_positions.delete(user);
-                player_positions = player_positions;
-            })
-            .subscribe(async (status) => {
-                if (status !== "SUBSCRIBED") return;
-
-                try {
-                    const { nickname, color } = (await data.userPromise)
-                        .playerData;
-
-                    roomChannel.track({
-                        nickname,
-                        color,
-                        user: await user_id,
-                    });
-                } catch {
-                    goto("/", { invalidateAll: true });
-                }
-            });
-
-        return () => {
-            data.supabase.removeChannel(roomChannel);
-        };
+            .subscribe();
     });
 </script>
 
@@ -212,56 +157,38 @@
 >
     <ConfettiStage />
     {#if roomId}
-        {#await data.roomPromise}
-            <Board
-                bind:element
-                class="col-start-2 relative max-w-[70vh]"
-                {roomId}
-                {correctBoard}
-                board={createTempBoard(12)}
-                started={false}
-                supabase={data.supabase}
-            />
-        {:then room}
-            <!--If the board isn't created yet, make a temporary one just so the code works-->
-            <!--This doesn't take into possibility different screen sizes, i'll deal with that later-->
-            <BoardStats
-                class="top-[11vh] left-1/2 absolute z-10"
-                style="transform: translateX(-50%)"
-                time_started={room.created_at}
-                board={room.client_board ?? createTempBoard(room.rows_columns)}
-                ratio={room.mine_ratio}
-                shouldTimerStop={gameEnded}
-            />
-            <Board
-                bind:element
-                class="col-start-2 relative max-w-[70vh]"
-                {roomId}
-                {correctBoard}
-                started={room.started}
-                board={room.client_board ?? createTempBoard(room.rows_columns)}
-                on:mousemove={handleMouseMove}
-                supabase={data.supabase}
-            >
-                <div slot="players">
-                    {#each player_positions as [player_id, { x, y, color }] (player_id)}
-                        {#await user_id then id}
-                            <!--Don't let the users see their own cursor-->
-                            {#if id !== player_id}
-                                <Cursor
-                                    height="32px"
-                                    width="32px"
-                                    {x}
-                                    {y}
-                                    {color}
-                                />
-                            {/if}
-                        {/await}
-                    {/each}
-                </div>
-            </Board>
-        {/await}
+        <!--If the board isn't created yet, make a temporary one just so the code works-->
+        <!--This doesn't take into possibility different screen sizes, i'll deal with that later-->
+        <BoardStats
+            class="top-[11vh] left-1/2 absolute z-10"
+            style="transform: translateX(-50%)"
+            time_started={data.room.created_at}
+            board={data.room.client_board ??
+                createTempBoard(data.room.rows_columns)}
+            ratio={data.room.mine_ratio}
+            shouldTimerStop={gameEnded}
+        />
+        <Board
+            bind:element
+            class="col-start-2 relative max-w-[70vh]"
+            {roomId}
+            {correctBoard}
+            started={data.room.started}
+            board={data.room.client_board ??
+                createTempBoard(data.room.rows_columns)}
+            on:mousemove={handleMouseMove}
+            supabase={data.supabase}
+        >
+            <div slot="players">
+                {#each player_positions as [player_id, { x, y, color }] (player_id)}
+                    <!--Don't let the users see their own cursor-->
+                    {#if user_id !== player_id}
+                        <Cursor height="32px" width="32px" {x} {y} {color} />
+                    {/if}
+                {/each}
+            </div>
+        </Board>
     {/if}
 
-    <PlayerList players={player_positions} />
+    <PlayerList />
 </main>

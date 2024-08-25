@@ -7,6 +7,7 @@
         players,
         numberOfRowsColumns,
         mineRatio,
+        roomChannel,
         type roomData,
     } from "$lib/stores";
     import Board from "$lib/components/BoardComponents/Board.svelte";
@@ -18,7 +19,7 @@
 
     const roomId = $page.params["roomId"];
     const stringRoomId = addSpace(decode(Number(roomId)));
-    const user_id = data.userPromise.then((data) => data.id);
+    const user_id = data.user.id;
     const optionsChannel = data.supabase.channel(`room:${roomId}`);
 
     let board: Array<Array<number>>;
@@ -87,114 +88,51 @@
     }
 
     onMount(() => {
-        const roomChannel = data.supabase.channel(`room:${roomId}`, {
-            config: {
-                presence: { key: roomId },
-            },
-        });
+        const room = data.room;
+        if (room.started) {
+            goto(`/rooms/${roomId}/playing/`);
+        }
 
-        data.roomPromise.then((room) => {
-            if (room.started) {
-                goto(`/rooms/${roomId}/playing/`);
-            }
+        const lobbyChannel = data.supabase.channel(`lobby:${roomId}`);
 
-            roomChannel
-                .on("presence", { event: "sync" }, () => {
-                    const newState = roomChannel.presenceState()[
-                        roomId
-                    ] as unknown as Array<{
-                        user: string;
-                        nickname: string;
-                        color: string;
-                    }>;
+        lobbyChannel
+            .on(
+                "broadcast",
+                { event: "settingsChanged" },
+                async ({ payload }) => {
+                    if (user_id !== data.room.host) {
+                        const newSize = payload.settings[0];
+                        const newRatio = payload.settings[1];
 
-                    for (const { user, nickname, color } of newState ?? []) {
-                        $players.set(user, {
-                            x: 0,
-                            y: 0,
-                            nickname,
-                            color,
+                        $numberOfRowsColumns = [newSize];
+                        $mineRatio = [newRatio];
+                    }
+                },
+            )
+            .on(
+                "postgres_changes",
+                {
+                    event: "UPDATE",
+                    schema: "public",
+                    table: "rooms",
+                },
+                async (payload) => {
+                    console.log("BRUH");
+                    if (payload.new.started) {
+                        console.log("Redirecting");
+                        await goto(`/rooms/${roomId}/playing/`, {
+                            invalidateAll: true,
+                        }).catch((reason) => {
+                            console.warn(reason);
                         });
                     }
-
-                    $players = $players;
-                })
-                .on("presence", { event: "join" }, async ({ newPresences }) => {
-                    const { user, nickname, color } = newPresences[0];
-
-                    $players.set(user, {
-                        x: 0,
-                        y: 0,
-                        nickname,
-                        color,
-                    });
-                    $players = $players;
-                })
-                .on(
-                    "presence",
-                    { event: "leave" },
-                    async ({ leftPresences }) => {
-                        const { user } = leftPresences[0];
-
-                        $players.delete(user);
-                        $players = $players;
-                    },
-                )
-                .on(
-                    "broadcast",
-                    { event: "settingsChanged" },
-                    async ({ payload }) => {
-                        if ((await user_id) !== (await data.roomPromise).host) {
-                            const newSize = payload.settings[0];
-                            const newRatio = payload.settings[1];
-
-                            $numberOfRowsColumns = [newSize];
-                            $mineRatio = [newRatio];
-                        }
-                    },
-                )
-                .on(
-                    "postgres_changes",
-                    {
-                        event: "UPDATE",
-                        schema: "public",
-                        table: "rooms",
-                    },
-                    async (payload) => {
-                        console.log(payload);
-                        if (payload.new.started) {
-                            console.log("Redirecting");
-                            await goto(`/rooms/${roomId}/playing/`, {
-                                invalidateAll: true,
-                            }).catch((reason) => {
-                                console.warn(reason);
-                                invalidateAll();
-                            });
-                        }
-                    },
-                )
-                .subscribe(async (status) => {
-                    if (status !== "SUBSCRIBED") {
-                        console.warn(status);
-                        return;
-                    }
-                    console.log("Connected!");
-
-                    const { nickname, color } = (await data.userPromise)
-                        .playerData;
-
-                    roomChannel.track({
-                        nickname,
-                        color,
-                        user: await user_id,
-                    });
-                });
-        });
+                },
+            )
+            .subscribe();
 
         return () => {
             console.log("Cleaning up");
-            data.supabase.removeChannel(roomChannel);
-            data.supabase.removeChannel(optionsChannel);
+            data.supabase.removeChannel(lobbyChannel);
         };
     });
 </script>
@@ -213,7 +151,7 @@
         </div>
         <Board
             bind:element
-            class="max-w-[400px]"
+            class="max-w-[30vw]"
             correctBoard={undefined}
             {board}
             started={false}
@@ -222,18 +160,14 @@
             supabase={data.supabase}
         />
         <!--These are only for the room's host-->
-        {#await data.roomPromise then room}
-            {#await user_id then id}
-                {#if room.host === id}
-                    <BoardSettings />
-                    <button
-                        on:click={onStart}
-                        class="btn btn-circle bg-primary-500 text-primary-900 w-[200px] h-[44px] font-metropolis font-bold text-lg m-5"
-                        >Start</button
-                    >
-                {/if}
-            {/await}
-        {/await}
+        {#if data.room.host === user_id}
+            <BoardSettings />
+            <button
+                on:click={onStart}
+                class="btn btn-circle bg-primary-500 text-primary-900 w-[200px] h-[44px] font-metropolis font-bold text-lg m-5"
+                >Start</button
+            >
+        {/if}
     </div>
-    <PlayerList class="hidden lg:flex" roomPromise={data.roomPromise} />
+    <PlayerList class="hidden lg:flex" room={data.room} />
 </main>

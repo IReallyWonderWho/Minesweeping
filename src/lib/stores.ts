@@ -1,10 +1,10 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { RealtimeChannel, type SupabaseClient } from "@supabase/supabase-js";
 import { writable } from "svelte/store";
 
 export interface roomData {
   supabase: SupabaseClient;
   session: string;
-  roomPromise: Promise<{
+  room: {
     client_board: Array<Array<number>> | undefined;
     created_at: string;
     flags: {
@@ -14,14 +14,14 @@ export interface roomData {
     rows_columns: number;
     mine_ratio: number;
     host: string;
-  }>;
-  userPromise: Promise<{
+  };
+  user: {
     playerData: {
       nickname: string;
       color: string;
     };
     id: string;
-  }>;
+  };
 }
 
 export const flags = writable<Map<string, boolean>>(new Map());
@@ -45,3 +45,5 @@ export const confetti = writable<[boolean]>([false]);
 export const windowRect = writable<DOMRect | undefined>();
 
 export const isHost = writable<boolean>(false);
+
+export const roomChannel = writable<RealtimeChannel | undefined>();

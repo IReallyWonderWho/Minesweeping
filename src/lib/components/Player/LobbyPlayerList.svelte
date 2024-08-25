@@ -4,11 +4,13 @@
     import { Flip } from "gsap/dist/Flip";
     import { players } from "$lib/stores";
 
-    export let roomPromise: Promise<{
+    export let room: {
         host: string;
-    }>;
+    };
 
     gsap.registerPlugin(Flip);
+
+    $: console.log($players);
 
     const {
         elements: {
@@ -39,21 +41,19 @@
                 >
                     Players
                 </h3>
-                {#await roomPromise then room}
-                    {#each $players as [id, { nickname }] (nickname)}
-                        {#if id === room.host}
-                            <span
-                                class="flex flex-row text-center items-center justify-items-center"
-                                ><p class="text-lg text-primary-100">
-                                    {nickname}
-                                </p>
-                                <p class="p-2 text-xl">👑</p></span
-                            >
-                        {:else}
-                            <p class="text-lg text-primary-100">{nickname}</p>
-                        {/if}
-                    {/each}
-                {/await}
+                {#each $players as [id, { nickname }] (id)}
+                    {#if id === room.host}
+                        <span
+                            class="flex flex-row text-center items-center justify-items-center"
+                            ><p class="text-lg text-primary-100">
+                                {nickname}
+                            </p>
+                            <p class="p-2 text-xl">👑</p></span
+                        >
+                    {:else}
+                        <p class="text-lg text-primary-100">{nickname}</p>
+                    {/if}
+                {/each}
             </div>
         </div>
         <div

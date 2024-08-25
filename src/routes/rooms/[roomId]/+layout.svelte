@@ -1,8 +1,16 @@
 <script lang="ts">
     import { page } from "$app/stores";
     import Icon from "$lib/components/Icon.svelte";
-    import { type roomData } from "$lib/stores";
+    import {
+        roomChannel,
+        players,
+        mineRatio,
+        numberOfRowsColumns,
+        type roomData,
+    } from "$lib/stores";
+    import type { RealtimeChannel } from "@supabase/supabase-js";
     import { onMount } from "svelte";
+    import { goto } from "$app/navigation";
 
     export let data: roomData;
 
@@ -20,20 +28,108 @@
     }
 
     onMount(() => {
+        let channel: RealtimeChannel | undefined;
+
         data.supabase.auth
             .getUser()
             .then(async ({ data: playerData, error }) => {
                 if (error) return;
 
-                const hostId = (await data.roomPromise).host;
+                const hostId = data.room.host;
 
                 if (playerData.user?.id === hostId) {
                     pingRoom();
                     event = setInterval(pingRoom, 60000);
                 }
+
+                const user_id = playerData.user.id;
+
+                if (!$roomChannel) {
+                    channel = data.supabase.channel(`players:${roomId}`, {
+                        config: {
+                            presence: { key: roomId },
+                        },
+                    });
+
+                    channel
+                        .on("presence", { event: "sync" }, () => {
+                            const newState = channel!.presenceState()[
+                                roomId
+                            ] as unknown as Array<{
+                                user: string;
+                                nickname: string;
+                                color: string;
+                            }>;
+
+                            console.log(newState);
+                            for (const { user, nickname, color } of newState ??
+                                []) {
+                                $players.set(user, {
+                                    x: 0,
+                                    y: 0,
+                                    nickname,
+                                    color,
+                                });
+                            }
+
+                            $players = $players;
+                        })
+                        .on(
+                            "presence",
+                            { event: "join" },
+                            async ({ newPresences }) => {
+                                const { user, nickname, color } =
+                                    newPresences[0];
+
+                                console.log("HEHE");
+                                console.log(user);
+                                $players.set(user, {
+                                    x: 0,
+                                    y: 0,
+                                    nickname,
+                                    color,
+                                });
+                                $players = $players;
+                            },
+                        )
+                        .on(
+                            "presence",
+                            { event: "leave" },
+                            async ({ leftPresences }) => {
+                                const { user } = leftPresences[0];
+
+                                $players.delete(user);
+                                $players = $players;
+                            },
+                        )
+                        .subscribe(async (status) => {
+                            if (status !== "SUBSCRIBED") {
+                                console.warn(status);
+                                if (status === "CHANNEL_ERROR") {
+                                    $roomChannel = undefined;
+                                }
+                                return;
+                            }
+                            console.log("Connected!");
+
+                            $roomChannel = channel;
+
+                            const { nickname, color } = data.user.playerData;
+
+                            channel!.track({
+                                nickname,
+                                color,
+                                user: user_id,
+                            });
+                        });
+                }
             });
 
         return () => {
+            if ($roomChannel) {
+                data.supabase.removeChannel($roomChannel);
+                $roomChannel = undefined;
+            }
             clearInterval(event);
         };
     });

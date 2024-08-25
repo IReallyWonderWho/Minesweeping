@@ -24,35 +24,36 @@ export const load: LayoutLoad = async ({ params, parent }) => {
   if (!roomId || typeof roomId !== "string") throw redirect(307, "/");
   let room_id = Number(roomId);
 
-  const user = new Promise(async (resolve, reject) => {
-    const { data, error } = await supabase.auth.getUser();
+  const [room, user] = await Promise.all([
+    getData(supabase, room_id),
+    new Promise(async (resolve, reject) => {
+      const { data, error } = await supabase.auth.getUser();
 
-    if (error) return reject("User not found");
+      if (error) return reject("User not found");
 
-    const { data: playerData, error: playerError } = await supabase
-      .from("room_players")
-      .select("nickname, color")
-      .eq("user_id", data.user.id)
-      .single();
+      const { data: playerData, error: playerError } = await supabase
+        .from("room_players")
+        .select("nickname, color")
+        .eq("user_id", data.user.id)
+        .single();
 
-    if (playerError) {
-      console.warn(playerError);
-      return reject("User info not found");
-    }
+      if (playerError) {
+        console.warn(playerError);
+        return reject("User info not found");
+      }
 
-    const returnData = {
-      playerData,
-      id: data.user.id,
-    };
+      const returnData = {
+        playerData,
+        id: data.user.id,
+      };
 
-    resolve(returnData);
-  });
-
-  const room = getData(supabase, room_id);
+      resolve(returnData);
+    }),
+  ]);
   console.log("MUHAHAHA");
 
   return {
-    roomPromise: room,
-    userPromise: user,
+    room: room,
+    user: user,
   };
 };

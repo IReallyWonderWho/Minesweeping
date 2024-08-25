@@ -3,8 +3,7 @@
     import { gsap } from "gsap/dist/gsap";
     import { Flip } from "gsap/dist/Flip";
     import Player from "./Player.svelte";
-
-    export let players: Map<string, { color: string; nickname: string }>;
+    import { players } from "$lib/stores";
 
     gsap.registerPlugin(Flip);
 
@@ -101,7 +100,7 @@
                     >
                         Players
                     </h3>
-                    {#each players as [_, { nickname, color }] (nickname)}
+                    {#each $players as [_, { nickname, color }] (nickname)}
                         <Player {nickname} {color} />
                     {/each}
                 </div>
