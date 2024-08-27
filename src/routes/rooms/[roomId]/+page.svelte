@@ -3,13 +3,7 @@
     import { goto, invalidateAll } from "$app/navigation";
     import { onMount } from "svelte";
     import PlayerList from "$lib/components/Player/LobbyPlayerList.svelte";
-    import {
-        players,
-        numberOfRowsColumns,
-        mineRatio,
-        roomChannel,
-        type roomData,
-    } from "$lib/stores";
+    import { numberOfRowsColumns, mineRatio, type roomData } from "$lib/stores";
     import Board from "$lib/components/BoardComponents/Board.svelte";
     import { createTempBoard, UNKNOWN_TILE, MINE_TILE } from "$lib/boardUtils";
     import BoardSettings from "$lib/components/BoardComponents/BoardSettings.svelte";
@@ -87,11 +81,30 @@
         ]);
     }
 
+    async function checkStarted() {
+        const { data: roomData, error } = await data.supabase
+            .from("rooms")
+            .select("started")
+            .eq("id", roomId)
+            .single();
+
+        if (error) return;
+
+        console.log(roomData.started);
+        if (roomData.started) {
+            await goto(`/rooms/${roomId}/playing`, {
+                invalidateAll: true,
+            });
+        }
+    }
+
     onMount(() => {
         const room = data.room;
         if (room.started) {
             goto(`/rooms/${roomId}/playing/`);
         }
+
+        const checkInterval = setInterval(checkStarted, 3000);
 
         const lobbyChannel = data.supabase.channel(`lobby:${roomId}`);
 
@@ -132,6 +145,7 @@
 
         return () => {
             console.log("Cleaning up");
+            clearInterval(checkInterval);
             data.supabase.removeChannel(lobbyChannel);
         };
     });

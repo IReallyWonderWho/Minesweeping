@@ -1,13 +1,7 @@
 <script lang="ts">
     import { page } from "$app/stores";
     import Icon from "$lib/components/Icon.svelte";
-    import {
-        roomChannel,
-        players,
-        mineRatio,
-        numberOfRowsColumns,
-        type roomData,
-    } from "$lib/stores";
+    import { roomChannel, players, type roomData } from "$lib/stores";
     import type { RealtimeChannel } from "@supabase/supabase-js";
     import { onMount } from "svelte";
     import { goto } from "$app/navigation";
@@ -28,8 +22,6 @@
     }
 
     onMount(() => {
-        let channel: RealtimeChannel | undefined;
-
         data.supabase.auth
             .getUser()
             .then(async ({ data: playerData, error }) => {
@@ -45,11 +37,7 @@
                 const user_id = playerData.user.id;
 
                 if (!$roomChannel) {
-                    channel = data.supabase.channel(`players:${roomId}`, {
-                        config: {
-                            presence: { key: roomId },
-                        },
-                    });
+                    const channel = data.supabase.channel(`players:${roomId}`);
 
                     channel
                         .on("presence", { event: "sync" }, () => {
@@ -105,9 +93,6 @@
                         .subscribe(async (status) => {
                             if (status !== "SUBSCRIBED") {
                                 console.warn(status);
-                                if (status === "CHANNEL_ERROR") {
-                                    $roomChannel = undefined;
-                                }
                                 return;
                             }
                             console.log("Connected!");

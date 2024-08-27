@@ -10,11 +10,11 @@ export function longpress(node: HTMLElement, threshold = 250) {
       node.removeEventListener("touchend", cancel);
     };
 
-    node.addEventListener("touchmove", cancel);
-    node.addEventListener("touchend", cancel);
+    node.addEventListener("touchmove", cancel, { passive: true });
+    node.addEventListener("touchend", cancel, { passive: true });
   };
 
-  node.addEventListener("touchstart", handle_press);
+  node.addEventListener("touchstart", handle_press, { passive: true });
 
   return {
     destroy() {
