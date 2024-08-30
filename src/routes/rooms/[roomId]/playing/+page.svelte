@@ -13,7 +13,7 @@
         confetti,
         windowRect,
         type roomData,
-        roomChannel,
+        players,
     } from "$lib/stores";
     import { clamp, decode, addSpace } from "$lib/utility";
     import { createTempBoard } from "$lib/boardUtils";
@@ -21,6 +21,7 @@
     export let data: roomData;
 
     const roomId = $page.params["roomId"];
+    const channel = data.supabase.channel(`room:${roomId}`);
 
     // If the mouse distance moved is under 10 pixels, it's not worth sending
     // an update
@@ -37,12 +38,6 @@
     let correctBoard: Array<Array<number>> | undefined;
     let gameEnded: boolean = false;
 
-    // User id: { x, y, color, nickname }
-    let player_positions: Map<
-        string,
-        { nickname: string; x: number; y: number; color: string }
-    > = new Map();
-
     $: {
         if (element) {
             $windowRect = element.getBoundingClientRect();
@@ -58,7 +53,7 @@
         const now = Date.now();
 
         if (now - last_call < UPDATE_FPS) return;
-        if (!$windowRect || !$roomChannel) return;
+        if (!$windowRect) return;
 
         const { pageX, pageY } = event;
         const { top, right, bottom, left, width, height } = $windowRect;
@@ -73,11 +68,15 @@
 
         last_call = now;
 
-        if (distance >= CHANGE_THRESHOLD) {
-            const scaled_x = x / width;
-            const scaled_y = y / height;
+        console.log(distance);
 
-            $roomChannel.send({
+        if (distance >= CHANGE_THRESHOLD) {
+            const scaled_x = x2 / width;
+            const scaled_y = y2 / height;
+
+            previous_position = [x2, y2];
+
+            await channel.send({
                 type: "broadcast",
                 event: "mouseUpdate",
                 payload: { x: scaled_x, y: scaled_y, user_id: user_id },
@@ -92,23 +91,23 @@
             return goto(`/rooms/${roomId}`, { invalidateAll: true });
         $flags = new Map(Object.entries(room.flags.flags ?? {}));
 
-        const channel = data.supabase.channel(`room:${roomId}`);
-
         channel
             .on("broadcast", { event: "mouseUpdate" }, ({ payload }) => {
-                const data = player_positions.get(payload.user_id);
+                const data = $players.get(payload.user_id);
+
+                console.log(data);
 
                 if (!data) return;
 
                 const { color, nickname } = data;
 
-                player_positions.set(payload.user_id, {
+                $players.set(payload.user_id, {
                     x: payload.x,
                     y: payload.y,
                     color,
                     nickname,
                 });
-                player_positions = player_positions;
+                $players = $players;
             })
             .on(
                 "broadcast",
@@ -180,7 +179,7 @@
             supabase={data.supabase}
         >
             <div slot="players">
-                {#each player_positions as [player_id, { x, y, color }] (player_id)}
+                {#each $players as [player_id, { x, y, color }] (player_id)}
                     <!--Don't let the users see their own cursor-->
                     {#if user_id !== player_id}
                         <Cursor height="32px" width="32px" {x} {y} {color} />
