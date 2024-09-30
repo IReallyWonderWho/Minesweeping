@@ -1,4 +1,3 @@
-import type { PageServerLoad } from "./$types";
 import { fail, redirect, type Actions } from "@sveltejs/kit";
 import { getRandomHSL } from "$lib/utility";
 

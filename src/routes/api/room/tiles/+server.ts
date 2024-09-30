@@ -85,7 +85,6 @@ async function lockRoom(roomId: string): Promise<LockResult> {
 }
 
 async function removeLock(roomId: string, lockId: string) {
-  console.log("releasing lock");
   await supabase.rpc("release_room_lock", {
     p_room_id: roomId,
     p_locked_by: lockId,
@@ -96,11 +95,10 @@ export const POST: RequestHandler = async ({ request }) => {
   const accessToken = request.headers.get("authorization")?.split("Bearer ")[1];
   const body = await request.json();
 
-  const { x, y, roomId } = body;
+  const { x, y, roomId, tiles } = body;
 
   if (
-    x === undefined ||
-    y === undefined ||
+    ((x === undefined || y === undefined) && tiles === undefined) ||
     roomId === undefined ||
     !accessToken
   )
@@ -147,36 +145,50 @@ export const POST: RequestHandler = async ({ request }) => {
 
   const { userId } = userResult.data;
 
-  const [shouldIncrement, return_tile] = returnTile(
-    room.server_board,
-    room.client_board,
-    x,
-    y,
-  );
-  const increment_by = shouldIncrement
-    ? "x" in return_tile
-      ? 1
-      : return_tile.size
-    : 0;
+  const actual_tiles = tiles ?? [[x, y]];
+  const return_tiles = [];
+  let total = 0;
+
+  for (const [x, y] of actual_tiles) {
+    const [shouldIncrement, return_tile] = returnTile(
+      room.server_board,
+      room.client_board,
+      x,
+      y,
+    );
+    total += shouldIncrement ? ("x" in return_tile ? 1 : return_tile.size) : 0;
+
+    return_tiles.push(
+      "x" in return_tile
+        ? JSON.stringify(return_tile)
+        : JSON.stringify(Object.fromEntries(return_tile)),
+    );
+
+    if ("x" in return_tile && return_tile.state === MINE_TILE) {
+      await handleGameOver(
+        roomId,
+        userId,
+        false,
+        return_tile,
+        room.server_board,
+      );
+    }
+  }
 
   const won = didGameEnd(
     room.client_board,
-    room.revealed_tiles + increment_by,
+    room.revealed_tiles + total,
     room.mine_ratio,
   );
 
-  const response = new Response(
-    "x" in return_tile
-      ? JSON.stringify(return_tile)
-      : JSON.stringify(Object.fromEntries(return_tile)),
-  );
+  const response = new Response(JSON.stringify(return_tiles));
 
-  if (won || ("x" in return_tile && return_tile.state === MINE_TILE)) {
-    await handleGameOver(roomId, userId, won, return_tile, room.server_board);
+  if (won) {
+    await handleGameOver(roomId, userId, won, undefined, room.server_board);
   }
 
   Promise.all([
-    updateRoomState(roomId, room, increment_by),
+    updateRoomState(roomId, room, total),
     removeLock(roomId, lockId),
   ]);
 

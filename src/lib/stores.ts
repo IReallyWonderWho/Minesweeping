@@ -24,6 +24,7 @@ export interface roomData {
   };
 }
 
+export const board = writable<Array<Array<number>>>();
 export const flags = writable<Map<string, boolean>>(new Map());
 export const players = writable<
   Map<
@@ -36,6 +37,7 @@ export const players = writable<
     }
   >
 >(new Map());
+export const highlightedTile = writable<[number, number] | undefined>();
 
 export const numberOfRowsColumns = writable([12]);
 export const mineRatio = writable([6]);

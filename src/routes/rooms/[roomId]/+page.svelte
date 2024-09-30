@@ -1,9 +1,14 @@
 <script lang="ts">
     import { page } from "$app/stores";
-    import { goto, invalidateAll } from "$app/navigation";
+    import { goto } from "$app/navigation";
     import { onMount } from "svelte";
     import PlayerList from "$lib/components/Player/LobbyPlayerList.svelte";
-    import { numberOfRowsColumns, mineRatio, type roomData } from "$lib/stores";
+    import {
+        numberOfRowsColumns,
+        mineRatio,
+        type roomData,
+        board,
+    } from "$lib/stores";
     import Board from "$lib/components/BoardComponents/Board.svelte";
     import { createTempBoard, UNKNOWN_TILE, MINE_TILE } from "$lib/boardUtils";
     import BoardSettings from "$lib/components/BoardComponents/BoardSettings.svelte";
@@ -16,7 +21,6 @@
     const user_id = data.user.id;
     const optionsChannel = data.supabase.channel(`room:${roomId}`);
 
-    let board: Array<Array<number>>;
     let previous_mine_ratio = 0;
     let previous_size = 0;
 
@@ -51,7 +55,7 @@
                 },
             });
 
-            board = new_board;
+            $board = new_board;
         }
     }
 
@@ -167,7 +171,6 @@
             bind:element
             class="max-w-[30vw]"
             correctBoard={undefined}
-            {board}
             started={false}
             {roomId}
             isLobby={true}

@@ -1,14 +1,13 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import Icon from "$lib/components/Icon.svelte";
-    import { flags } from "$lib/stores";
+    import { flags, board } from "$lib/stores";
 
     export let time_started: string | undefined;
-    export let board: Array<Array<number>>;
     export let ratio = 6;
     export let shouldTimerStop = false;
 
-    $: number_of_flags = Math.floor(board.length ** 2 / ratio);
+    $: number_of_flags = Math.floor($board.length ** 2 / ratio);
 
     $: {
         if (shouldTimerStop) {

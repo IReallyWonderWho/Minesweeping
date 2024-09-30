@@ -2,9 +2,7 @@
     import { page } from "$app/stores";
     import Icon from "$lib/components/Icon.svelte";
     import { roomChannel, players, type roomData } from "$lib/stores";
-    import type { RealtimeChannel } from "@supabase/supabase-js";
     import { onMount } from "svelte";
-    import { goto } from "$app/navigation";
 
     export let data: roomData;
 

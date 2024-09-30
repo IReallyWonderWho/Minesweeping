@@ -2,8 +2,7 @@
     import { createScrollArea, melt } from "@melt-ui/svelte";
     import { onMount } from "svelte";
     import Tile from "./Tile.svelte";
-    import { addToast } from "$lib/components/Toaster.svelte";
-    import { flags } from "$lib/stores";
+    import { flags, board } from "$lib/stores";
     import type { SupabaseClient } from "@supabase/supabase-js";
 
     const UNKNOWN_TILE = -2;
@@ -12,11 +11,14 @@
     const FALSE_FLAG_TILE = -4;
 
     export let supabase: SupabaseClient;
-    export let started: boolean;
     export let roomId: string;
-    export let board: Array<Array<number>>;
     export let element: Element;
-    export let correctBoard: Array<Array<number>> | undefined;
+    export let correctBoard:
+        | {
+              board: Array<Array<number>>;
+              won: boolean;
+          }
+        | undefined;
     export let isLobby: boolean = false;
 
     const channel = supabase.channel(`tile:${roomId}`);
@@ -36,7 +38,7 @@
         dir: "rtl",
     });
 
-    $: boardLength = board.length;
+    $: boardLength = $board.length;
 
     $: {
         for (const [id] of $flags) {
@@ -46,10 +48,10 @@
             // Make sure the flag is within range
             if (
                 x < 0 ||
-                x > board.length - 1 ||
+                x > $board.length - 1 ||
                 y < 0 ||
-                y > board.length - 1 ||
-                board[x][y] >= MINE_TILE
+                y > $board.length - 1 ||
+                $board[x][y] >= MINE_TILE
             ) {
                 $flags.delete(`${x},${y}`);
 
@@ -63,152 +65,31 @@
                 continue;
             }
 
-            board[x][y] = FLAGGED_TILE;
+            $board[x][y] = FLAGGED_TILE;
+            $board = $board;
         }
     }
 
     $: {
         // The game has ended and now we display where the mines were and any false flags
         if (correctBoard) {
-            for (let x = 0; x < correctBoard.length; x++) {
-                for (let y = 0; y < correctBoard.length; y++) {
-                    const correctTile = correctBoard[x][y];
-                    const clientTile = board[x][y];
+            if (!correctBoard.won) {
+                for (let x = 0; x < correctBoard.board.length; x++) {
+                    for (let y = 0; y < correctBoard.board.length; y++) {
+                        const correctTile = correctBoard.board[x][y];
+                        const clientTile = $board[x][y];
 
-                    if (
-                        clientTile === FLAGGED_TILE &&
-                        correctTile !== MINE_TILE
-                    ) {
-                        board[x][y] = FALSE_FLAG_TILE;
+                        if (
+                            clientTile === FLAGGED_TILE &&
+                            correctTile !== MINE_TILE
+                        ) {
+                            $board[x][y] = FALSE_FLAG_TILE;
+                        }
                     }
                 }
+                $board = $board;
             }
         }
-    }
-
-    async function postTile(x: number, y: number) {
-        if ((board && board[x][y] !== UNKNOWN_TILE) || !started) return;
-
-        const { data, error } = await supabase.auth.getSession();
-
-        if (error) {
-            addToast({
-                data: {
-                    title: "Unable to get current session",
-                    description:
-                        "You're likely logged out, please try rejoining the room with a new nickname",
-                    color: "red",
-                },
-            });
-
-            return;
-        }
-
-        const accessToken = data.session?.access_token;
-
-        const response = await fetch("/api/room/tiles", {
-            method: "POST",
-            body: JSON.stringify({
-                x,
-                y,
-                roomId,
-            }),
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
-                "Content-Type": "application/json",
-            },
-        });
-
-        if (response.status === 200) {
-            const returned_tile = await response.json();
-
-            if (!board) return;
-
-            if ("x" in returned_tile) {
-                const { x, y, state } = returned_tile;
-
-                board[x][y] = state;
-            } else {
-                for (const [id, state] of new Map(
-                    Object.entries(returned_tile),
-                )) {
-                    const [_x, _y] = id.split(",");
-                    const [x, y] = [Number(_x), Number(_y)];
-
-                    board[x][y] = state as number;
-                }
-            }
-        }
-    }
-
-    async function flagTile(x: number, y: number) {
-        if (
-            (board &&
-                board[x][y] !== UNKNOWN_TILE &&
-                board[x][y] !== FLAGGED_TILE) ||
-            !started
-        )
-            return;
-
-        const id = `${x},${y}`;
-
-        // Ok here me out, the logic should go like this, if tile isn't found, that means
-        // it isn't flagged, so then we flag it by setting it to true
-        // But if it was already flagged, it would exist as true and we can unflag it by setting
-        // it to undefined which also has the benefit that the database has less data to keep track of
-        const past_tile = $flags.get(id);
-
-        if (past_tile) {
-            $flags.delete(id);
-        } else {
-            $flags.set(id, true);
-        }
-
-        const new_tile = $flags.get(id);
-
-        board[x][y] = new_tile ? FLAGGED_TILE : UNKNOWN_TILE;
-
-        $flags = $flags;
-
-        channel.send({
-            type: "broadcast",
-            event: "tileUpdated",
-            payload: {
-                tile: JSON.stringify({
-                    x,
-                    y,
-                    state: new_tile ? FLAGGED_TILE : UNKNOWN_TILE,
-                }),
-            },
-        });
-
-        await supabase
-            .from("flags")
-            .update({
-                flags: Object.fromEntries($flags),
-            })
-            .eq("room_id", roomId);
-    }
-
-    async function gameEnded(correctBoard: Array<Array<number>> | undefined) {
-        if (!correctBoard) return;
-
-        for (let x = 0; x < boardLength; x++) {
-            for (let y = 0; y < boardLength; y++) {
-                const correctTile = correctBoard[x][y];
-                const originalTile = board[x][y];
-
-                if (correctTile === MINE_TILE) {
-                    if (originalTile !== FLAGGED_TILE) {
-                        board[x][y] = MINE_TILE;
-                    }
-                }
-            }
-        }
-    }
-
-    $: {
-        gameEnded(correctBoard);
     }
 
     onMount(() => {
@@ -223,7 +104,9 @@
                 ({ payload }) => {
                     const returned_tile = JSON.parse(payload.tile);
 
-                    if (!board) return;
+                    if (!$board) return;
+
+                    console.log(returned_tile);
 
                     if (returned_tile["x"] !== undefined) {
                         const { x, y, state } = returned_tile;
@@ -232,19 +115,21 @@
                         // positions
                         if (
                             state === FLAGGED_TILE &&
-                            board[x][y] === UNKNOWN_TILE
+                            $board[x][y] === UNKNOWN_TILE
                         ) {
                             $flags.set(`${x},${y}`, true);
                             $flags = $flags;
 
-                            board[x][y] = FLAGGED_TILE;
+                            $board[x][y] = FLAGGED_TILE;
+                            $board = $board;
                         } else if (state !== FLAGGED_TILE) {
-                            if (board[x][y] === FLAGGED_TILE) {
+                            if ($board[x][y] === FLAGGED_TILE) {
                                 $flags.delete(`${x},${y}`);
                                 $flags = $flags;
                             }
 
-                            board[x][y] = state;
+                            $board[x][y] = state;
+                            $board = $board;
                         }
                     } else {
                         for (const [id, state] of new Map(
@@ -253,8 +138,9 @@
                             const [_x, _y] = id.split(",");
                             const [x, y] = [Number(_x), Number(_y)];
 
-                            board[x][y] = state as number;
+                            $board[x][y] = state as number;
                         }
+                        $board = $board;
                     }
                 },
             )
@@ -275,7 +161,7 @@
                         return;
 
                     console.log("Updating board");
-                    board = payload.new.client_board;
+                    $board = payload.new.client_board;
                 },
             )
             .subscribe((status) => {
@@ -306,13 +192,14 @@
                 {#each { length: boardLength } as _, y}
                     <Tile
                         position={{ x, y }}
-                        state={board
-                            ? board[x]
-                                ? board[x][y]
+                        state={$board
+                            ? $board[x]
+                                ? $board[x][y]
                                 : undefined
                             : undefined}
-                        {postTile}
-                        {flagTile}
+                        {supabase}
+                        {roomId}
+                        {channel}
                     />
                 {/each}
             {/each}

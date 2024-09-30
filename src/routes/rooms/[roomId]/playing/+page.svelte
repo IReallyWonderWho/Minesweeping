@@ -10,13 +10,16 @@
     import ConfettiStage from "$lib/components/Confetti/ConfettiStage.svelte";
     import {
         flags,
+        board,
         confetti,
         windowRect,
         type roomData,
         players,
+        highlightedTile,
     } from "$lib/stores";
     import { clamp, decode, addSpace } from "$lib/utility";
     import { createTempBoard } from "$lib/boardUtils";
+    import { Controller } from "$lib/components/Controller";
 
     export let data: roomData;
 
@@ -28,6 +31,7 @@
     const CHANGE_THRESHOLD = 10;
     // Approximately 15 FPS
     const UPDATE_FPS = 66.667;
+    const UNKNOWN_TILE = -2;
 
     const user_id = data.user.id;
 
@@ -35,7 +39,12 @@
     let last_call = Date.now();
 
     let element: any;
-    let correctBoard: Array<Array<number>> | undefined;
+    let correctBoard:
+        | {
+              board: Array<Array<number>>;
+              won: boolean;
+          }
+        | undefined;
     let gameEnded: boolean = false;
 
     $: {
@@ -68,8 +77,6 @@
 
         last_call = now;
 
-        console.log(distance);
-
         if (distance >= CHANGE_THRESHOLD) {
             const scaled_x = x2 / width;
             const scaled_y = y2 / height;
@@ -84,9 +91,121 @@
         }
     }
 
+    async function updateHighlight() {
+        if (Controller.getKey(["leftMouse", "rightMouse"]) && $windowRect) {
+            const { top, left } = $windowRect;
+            const id = document
+                .elementFromPoint(
+                    previous_position[0] + left,
+                    previous_position[1] + top,
+                )
+                ?.id?.split(",");
+
+            if (id) {
+                const [x, y] = [Number(id[0]), Number(id[1])];
+                $highlightedTile = [x, y];
+            }
+        } else {
+            $highlightedTile = [-999, -999];
+        }
+    }
+
+    async function pressHighlightedTile(event: MouseEvent) {
+        if ($windowRect && Controller.getKey(["leftMouse", "rightMouse"])) {
+            const element = document.elementFromPoint(event.x, event.y);
+            const id = element?.id?.split(",");
+
+            if (id) {
+                const [x, y, state] = [
+                    Number(id[0]),
+                    Number(id[1]),
+                    Number(id[2]),
+                ];
+                let amount_of_flags = 0;
+
+                for (let x_offsett = -1; x_offsett < 2; x_offsett++) {
+                    for (let y_offsett = -1; y_offsett < 2; y_offsett++) {
+                        if (x === 0 && y === 0) continue;
+
+                        const id = `${x + x_offsett},${y + y_offsett}`;
+
+                        if ($flags.get(id)) {
+                            amount_of_flags++;
+                        }
+                    }
+                }
+
+                if (state === amount_of_flags) {
+                    console.log("HELLO!!");
+                    const { data: supabaseData, error } =
+                        await data.supabase.auth.getSession();
+
+                    if (error) return;
+
+                    const accessToken = supabaseData.session?.access_token;
+
+                    const tiles = [];
+
+                    for (let x_offset = -1; x_offset < 2; x_offset++) {
+                        for (let y_offset = -1; y_offset < 2; y_offset++) {
+                            const row = $board[x + x_offset];
+
+                            if (!row) continue;
+
+                            const tile = row[y + y_offset];
+
+                            if (tile === UNKNOWN_TILE) {
+                                tiles.push([x + x_offset, y + y_offset]);
+                            }
+                        }
+                    }
+
+                    console.log(tiles);
+
+                    const response = await fetch("/api/room/tiles", {
+                        method: "POST",
+                        body: JSON.stringify({
+                            tiles,
+                            roomId,
+                        }),
+                        headers: {
+                            Authorization: `Bearer ${accessToken}`,
+                            "Content-Type": "application/json",
+                        },
+                    });
+
+                    const returned_tiles = await response.json();
+
+                    for (const json_tile of returned_tiles) {
+                        const tile = JSON.parse(json_tile);
+
+                        if ("x" in tile) {
+                            const { x, y, state } = tile;
+
+                            $board[x][y] = state;
+                        } else {
+                            for (const [id, state] of new Map(
+                                Object.entries(tile),
+                            )) {
+                                const [_x, _y] = id.split(",");
+                                const [x, y] = [Number(_x), Number(_y)];
+
+                                $board[x][y] = state as number;
+                            }
+                        }
+                    }
+
+                    $board = $board;
+                }
+            }
+        }
+    }
+
+    $board = data.room.client_board || createTempBoard(data.room.rows_columns);
+
     onMount(() => {
         const room = data.room;
-        console.log(room.started);
+
         if (!room.started)
             return goto(`/rooms/${roomId}`, { invalidateAll: true });
         $flags = new Map(Object.entries(room.flags.flags ?? {}));
@@ -118,7 +237,10 @@
                     const won = payload.won;
                     const player = payload.player;
 
-                    correctBoard = payload.board;
+                    correctBoard = {
+                        board: payload.board,
+                        won,
+                    };
                     gameEnded = true;
 
                     addToast({
@@ -143,6 +265,40 @@
                 },
             )
             .subscribe();
+
+        const keyPressed = (event: MouseEvent) => {
+            if (event.button === 0) {
+                Controller.keyPressed("leftMouse");
+                pressHighlightedTile(event);
+            } else if (event.button === 2) {
+                Controller.keyPressed("rightMouse");
+            }
+        };
+        const keyReleased = (event: MouseEvent) => {
+            if (event.button === 0) {
+                Controller.keyReleased("leftMouse");
+            } else if (event.button === 2) {
+                Controller.keyReleased("rightMouse");
+            }
+        };
+
+        document.addEventListener("mousedown", keyPressed);
+        document.addEventListener("mouseup", keyReleased);
+        document.addEventListener("pointerdown", keyPressed);
+        document.addEventListener("pointerup", keyReleased);
+
+        const highlight = setInterval(() => {
+            updateHighlight();
+        });
+
+        return () => {
+            document.removeEventListener("mousedown", keyPressed);
+            document.removeEventListener("mouseup", keyReleased);
+            document.removeEventListener("pointerup", keyPressed);
+            document.removeEventListener("pointerdown", keyReleased);
+
+            clearInterval(highlight);
+        };
     });
 </script>
 
@@ -162,8 +318,6 @@
             class="top-[11vh] left-1/2 absolute z-10"
             style="transform: translateX(-50%)"
             time_started={data.room.created_at}
-            board={data.room.client_board ??
-                createTempBoard(data.room.rows_columns)}
             ratio={data.room.mine_ratio}
             shouldTimerStop={gameEnded}
         />
@@ -173,8 +327,6 @@
             {roomId}
             {correctBoard}
             started={data.room.started}
-            board={data.room.client_board ??
-                createTempBoard(data.room.rows_columns)}
             on:mousemove={handleMouseMove}
             supabase={data.supabase}
         >

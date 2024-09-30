@@ -192,8 +192,6 @@ export function didGameEnd(
   // The tiles that should be left when the game is completed;
   const number_of_remaining_tiles = number_of_tiles - number_of_mines;
 
-  console.log(number_of_remaining_tiles);
-  console.log(number_of_revealed_tiles);
   return number_of_remaining_tiles === number_of_revealed_tiles;
 }
 
