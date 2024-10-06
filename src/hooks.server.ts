@@ -21,9 +21,11 @@ export const handle: Handle = async ({ event, resolve }) => {
            * requiring this to be set, setting the path to an empty string
            * will replicate previous/standard behavior (https://kit.svelte.dev/docs/types#public-types-cookies)
            */
-          cookiesToSet.forEach(({ name, value, options }) =>
-            event.cookies.set(name, value, { ...options, path: "/" }),
-          );
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              event.cookies.set(name, value, { ...options, path: "/" }),
+            );
+          } catch {}
         },
       },
     },

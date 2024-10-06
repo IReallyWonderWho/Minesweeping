@@ -43,7 +43,7 @@ async function handleGameOver(
     type: "broadcast",
     event: "gameOver",
     payload: {
-      won: return_tile["state"] === MINE_TILE ? false : won,
+      won: return_tile === undefined ? true : false,
       player: data?.nickname,
       board: server_board,
     },

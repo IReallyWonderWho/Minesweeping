@@ -176,6 +176,8 @@
 
                     const returned_tiles = await response.json();
 
+                    console.log(returned_tiles);
+
                     for (const json_tile of returned_tiles) {
                         const tile = JSON.parse(json_tile);
 
